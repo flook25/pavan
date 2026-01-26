@@ -3,236 +3,143 @@ close all
 clc
 
 % ==========================================
-% SECTION 1: PARAMETERS & INPUT
+% 1. PARAMETERS & INPUT
 % ==========================================
-% --- Dimensions (Meters) ---
-L1 = 0.210; % Ground (d) - Pink
+L1 = 210; % Ground (Pink)
+L2 = 118; % Crank (Light Blue)
+L3 = 210; % Coupler (Blue)
+L4 = 118; % Rocker (Brown)
 
-% Loop 1
-L2_Loop1 = 0.180; % Crank Loop 1 (a) - Green
-L3_Loop1 = 0.180; % Coupler Loop 1 (b) - Yellow
-L4_Shared = 0.118; % Shared Rocker (c) - Grey
+d = L1;
+a = L2;
+b = L3;
+c = L4;
 
-% Loop 2
-L2_Loop2 = 0.118; % Crank Loop 2 (Cyan Down)
-L3_Loop2 = 0.210; % Coupler Loop 2 (Red)
+% Ground Offset
+theta1_deg = 0.81;
+theta1 = deg2rad(theta1_deg);
 
-% Loop 3
-L2_Loop3 = 0.118; % Crank Loop 3 (Cyan Up - Extended)
-L3_Loop3 = 0.210; % Coupler Loop 3 (Blue)
-L4_Loop3 = 0.118; % Rocker Loop 3 (Brown - INPUT)
+% Input: Theta 4 (Global) -> Link 4 (Brown)
+q4_global_deg = 102.5;
+q4_global = deg2rad(q4_global_deg);
 
-d = L1; % Common Ground
-
-% --- Global Input ---
-offset_deg = 0.81;
-offset = deg2rad(offset_deg);
-
-% *** NEW INPUT: Brown Link (Loop 3) ***
-q4_Brown_deg = 102.5;
-q4_Brown = deg2rad(q4_Brown_deg) - offset;
+% Local Theta 4 (Relative to ground line)
+q4 = q4_global - theta1;
 
 % ==========================================
-% SECTION 2: SOLVE LOOP 3 (Backwards)
-% Input: Brown (q4), Find: Cyan Up (q_in_L3) & Blue (q3)
+% 2. SOLVE INVERSE KINEMATICS (Find q2 from q4)
 % ==========================================
-% Standard 4-bar: Ground(d)-Cyan(a)-Blue(b)-Brown(c)
-% We know 'c' (Brown angle), want to find 'a' (Cyan angle)
-% Use Inverse Kinematics logic (Swap a and c)
+% K Constants (Swapped 'a' and 'c' because q4 is input)
+K1_inv = d/c; 
+K2_inv = d/a; 
+K3_inv = (c^2 - b^2 + a^2 + d^2)/(2*c*a); 
 
-a = L2_Loop3; b = L3_Loop3; c = L4_Loop3;
+% Coefficients for q2
+A = cos(q4) - K1_inv - K2_inv*cos(q4) + K3_inv;
+B = -2*sin(q4);
+C = K1_inv - (K2_inv + 1)*cos(q4) + K3_inv;
 
-% K Constants (Input c - Brown)
-K1_L3 = d/c;
-K2_L3 = d/a;
-K3_L3 = (c^2 - b^2 + a^2 + d^2)/(2*c*a);
+% Calculate Discriminant
+disc = B^2 - 4*A*C;
 
-% Forward K for q3 later
-K1_L3_fwd = d/a;
-K4_L3_fwd = d/b;
-K5_L3_fwd = (c^2 - d^2 - a^2 - b^2)/(2*a*b);
+% Find 2 possible angles for Link 2 (q2)
+% Solution 1 (Usually Parallel/Open)
+q2_sol1 = 2*atan((-B - sqrt(disc))/(2*A));
 
-% Coeffs for Cyan (q2 equivalent)
-A_L3 = cos(q4_Brown) - K1_L3 - K2_L3*cos(q4_Brown) + K3_L3;
-B_L3 = -2*sin(q4_Brown);
-C_L3 = K1_L3 - (K2_L3+1)*cos(q4_Brown) + K3_L3;
+% Solution 2 (Usually Crossed)
+q2_sol2 = 2*atan((-B + sqrt(disc))/(2*A));
 
-% Solve Cyan Up Angle (q_in_L3) - Two Cases
-disc_L3 = B_L3^2 - 4*A_L3*C_L3;
-q_Cyan_Up_1 = 2*atan((-B_L3 - sqrt(disc_L3))/(2*A_L3)); % Case 1 (e.g., Parallel)
-q_Cyan_Up_2 = 2*atan((-B_L3 + sqrt(disc_L3))/(2*A_L3)); % Case 2 (e.g., Crossed)
+% ==========================================
+% 3. FIND CORRESPONDING THETA 3 (Find q3 for EACH q2)
+% ==========================================
+% Standard Constants for finding q3
+K1 = d/a;
+K4 = d/b;
+K5 = (c^2 - d^2 - a^2 - b^2)/(2*a*b);
 
-% Find Blue Angle (q3) for each case
-% Case 1
-D1 = cos(q_Cyan_Up_1) - K1_L3_fwd + K4_L3_fwd*cos(q_Cyan_Up_1) + K5_L3_fwd;
-E1 = -2*sin(q_Cyan_Up_1);
-F1 = K1_L3_fwd + (K4_L3_fwd - 1)*cos(q_Cyan_Up_1) + K5_L3_fwd;
-q3_Blue_1 = 2*atan((-E1 - sqrt(E1^2 - 4*D1*F1))/(2*D1));
+% --- CASE 1: Using q2_sol1 ---
+D1 = cos(q2_sol1) - K1 + K4*cos(q2_sol1) + K5;
+E1 = -2*sin(q2_sol1);
+F1 = K1 + (K4 - 1)*cos(q2_sol1) + K5;
+% For Parallel setup, usually requires -sqrt
+q3_sol1 = 2*atan((-E1 - sqrt(E1^2 - 4*D1*F1))/(2*D1));
 
-% Case 2
-D2 = cos(q_Cyan_Up_2) - K1_L3_fwd + K4_L3_fwd*cos(q_Cyan_Up_2) + K5_L3_fwd;
-E2 = -2*sin(q_Cyan_Up_2);
-F2 = K1_L3_fwd + (K4_L3_fwd - 1)*cos(q_Cyan_Up_2) + K5_L3_fwd;
-q3_Blue_2 = 2*atan((-E2 + sqrt(E2^2 - 4*D2*F2))/(2*D2));
+% --- CASE 2: Using q2_sol2 ---
+D2 = cos(q2_sol2) - K1 + K4*cos(q2_sol2) + K5;
+E2 = -2*sin(q2_sol2);
+F2 = K1 + (K4 - 1)*cos(q2_sol2) + K5;
+% For Crossed setup, usually requires +sqrt (or -sqrt depending on geometry)
+% Let's try +sqrt to force the other closure
+q3_sol2 = 2*atan((-E2 + sqrt(E2^2 - 4*D2*F2))/(2*D2));
 
 
 % ==========================================
-% SECTION 3: TRANSFER TO LOOP 2
-% Cyan Up (q_Cyan_Up) -> Cyan Down (q_Cyan_Down)
-% Relation: Straight line, so q_Cyan_Down = q_Cyan_Up - pi
+% 4. CONVERT TO GLOBAL & VECTORS
 % ==========================================
-q_Cyan_Down_1 = q_Cyan_Up_1 - pi;
-q_Cyan_Down_2 = q_Cyan_Up_2 - pi;
+% Case 1 Global Angles
+q2_global_1 = rad2deg(q2_sol1 + theta1);
+q3_global_1 = rad2deg(q3_sol1 + theta1);
 
+% Case 2 Global Angles
+q2_global_2 = rad2deg(q2_sol2 + theta1);
+q3_global_2 = rad2deg(q3_sol2 + theta1);
 
-% ==========================================
-% SECTION 4: SOLVE LOOP 2 (Forward)
-% Input: Cyan Down (q2), Find: Grey (q4) & Red (q3)
-% ==========================================
-a = L2_Loop2; b = L3_Loop2; c = L4_Shared;
-
-% We know 'a' (Cyan), find 'c' (Grey) -> Standard Forward Kinematics
-K1_L2 = d/a;
-K2_L2 = d/c;
-K3_L2 = (a^2 - b^2 + c^2 + d^2)/(2*a*c);
-K4_L2 = d/b;
-K5_L2 = (c^2 - d^2 - a^2 - b^2)/(2*a*b);
-
-% --- Case 1 Calculation ---
-q_in_L2_1 = q_Cyan_Down_1;
-A_L2_1 = cos(q_in_L2_1) - K1_L2 - K2_L2*cos(q_in_L2_1) + K3_L2;
-B_L2_1 = -2*sin(q_in_L2_1);
-C_L2_1 = K1_L2 - (K2_L2+1)*cos(q_in_L2_1) + K3_L2;
-% Grey (q4)
-q4_Grey_1 = 2*atan((-B_L2_1 - sqrt(B_L2_1^2 - 4*A_L2_1*C_L2_1))/(2*A_L2_1)); % Using -sqrt
-% Red (q3)
-D_L2_1 = cos(q_in_L2_1) - K1_L2 + K4_L2*cos(q_in_L2_1) + K5_L2;
-E_L2_1 = -2*sin(q_in_L2_1);
-F_L2_1 = K1_L2 + (K4_L2 - 1)*cos(q_in_L2_1) + K5_L2;
-q3_Red_1 = 2*atan((-E_L2_1 - sqrt(E_L2_1^2 - 4*D_L2_1*F_L2_1))/(2*D_L2_1));
-
-% --- Case 2 Calculation ---
-q_in_L2_2 = q_Cyan_Down_2;
-A_L2_2 = cos(q_in_L2_2) - K1_L2 - K2_L2*cos(q_in_L2_2) + K3_L2;
-B_L2_2 = -2*sin(q_in_L2_2);
-C_L2_2 = K1_L2 - (K2_L2+1)*cos(q_in_L2_2) + K3_L2;
-% Grey (q4)
-q4_Grey_2 = 2*atan((-B_L2_2 + sqrt(B_L2_2^2 - 4*A_L2_2*C_L2_2))/(2*A_L2_2)); % Using +sqrt
-% Red (q3)
-D_L2_2 = cos(q_in_L2_2) - K1_L2 + K4_L2*cos(q_in_L2_2) + K5_L2;
-E_L2_2 = -2*sin(q_in_L2_2);
-F_L2_2 = K1_L2 + (K4_L2 - 1)*cos(q_in_L2_2) + K5_L2;
-q3_Red_2 = 2*atan((-E_L2_2 + sqrt(E_L2_2^2 - 4*D_L2_2*F_L2_2))/(2*D_L2_2));
-
-
-% ==========================================
-% SECTION 5: SOLVE LOOP 1 (Backwards)
-% Input: Grey (q4 from Loop 2), Find: Green (q2) & Yellow (q3)
-% ==========================================
-a = L2_Loop1; b = L3_Loop1; c = L4_Shared;
-
-% We know 'c' (Grey), find 'a' (Green) -> Inverse Kinematics
-K1_L1 = d/c;
-K2_L1 = d/a;
-K3_L1 = (c^2 - b^2 + a^2 + d^2)/(2*c*a);
-
-K1_L1_fwd = d/a;
-K4_L1_fwd = d/b;
-K5_L1_fwd = (c^2 - d^2 - a^2 - b^2)/(2*a*b);
-
-% --- Case 1 Calculation ---
-q_in_L1_1 = q4_Grey_1;
-A_L1_1 = cos(q_in_L1_1) - K1_L1 - K2_L1*cos(q_in_L1_1) + K3_L1;
-B_L1_1 = -2*sin(q_in_L1_1);
-C_L1_1 = K1_L1 - (K2_L1+1)*cos(q_in_L1_1) + K3_L1;
-% Green (q2)
-q2_Green_1 = 2*atan((-B_L1_1 - sqrt(B_L1_1^2 - 4*A_L1_1*C_L1_1))/(2*A_L1_1));
-% Yellow (q3)
-D_L1_1 = cos(q2_Green_1) - K1_L1_fwd + K4_L1_fwd*cos(q2_Green_1) + K5_L1_fwd;
-E_L1_1 = -2*sin(q2_Green_1);
-F_L1_1 = K1_L1_fwd + (K4_L1_fwd - 1)*cos(q2_Green_1) + K5_L1_fwd;
-q3_Yellow_1 = 2*atan((-E_L1_1 - sqrt(E_L1_1^2 - 4*D_L1_1*F_L1_1))/(2*D_L1_1));
-
-% --- Case 2 Calculation ---
-q_in_L1_2 = q4_Grey_2;
-A_L1_2 = cos(q_in_L1_2) - K1_L1 - K2_L1*cos(q_in_L1_2) + K3_L1;
-B_L1_2 = -2*sin(q_in_L1_2);
-C_L1_2 = K1_L1 - (K2_L1+1)*cos(q_in_L1_2) + K3_L1;
-% Green (q2)
-q2_Green_2 = 2*atan((-B_L1_2 + sqrt(B_L1_2^2 - 4*A_L1_2*C_L1_2))/(2*A_L1_2));
-% Yellow (q3)
-D_L1_2 = cos(q2_Green_2) - K1_L1_fwd + K4_L1_fwd*cos(q2_Green_2) + K5_L1_fwd;
-E_L1_2 = -2*sin(q2_Green_2);
-F_L1_2 = K1_L1_fwd + (K4_L1_fwd - 1)*cos(q2_Green_2) + K5_L1_fwd;
-q3_Yellow_2 = 2*atan((-E_L1_2 + sqrt(E_L1_2^2 - 4*D_L1_2*F_L1_2))/(2*D_L1_2));
-
-
-% ==========================================
-% SECTION 6: VECTORS & PLOTTING
-% ==========================================
-RO4O2 = d*exp(j*offset);
+% Ground Vector (Same for both)
+RO4O2 = d*exp(j*theta1);
 RO4O2x = real(RO4O2); RO4O2y = imag(RO4O2);
+O4x = RO4O2x; O4y = RO4O2y;
 
-% --- Calculate Vectors Case 1 ---
-V_Green_1 = L2_Loop1 * exp(j*(q2_Green_1 + offset));
-V_Yellow_1 = L3_Loop1 * exp(j*(q3_Yellow_1 + offset));
-V_Grey_1 = L4_Shared * exp(j*(q4_Grey_1 + offset));
+% --- Vectors Case 1 ---
+RA1 = a*exp(j*(q2_sol1 + theta1));
+RBA1 = b*exp(j*(q3_sol1 + theta1));
+RBO4_1 = c*exp(j*(q4 + theta1)); % Input Fixed
 
-V_Cyan_Down_1 = L2_Loop2 * exp(j*(q_Cyan_Down_1 + offset));
-V_Red_1 = L3_Loop2 * exp(j*(q3_Red_1 + offset));
+RA1x = real(RA1); RA1y = imag(RA1);
+RBA1x = real(RBA1); RBA1y = imag(RBA1);
+RBO4_1x = real(RBO4_1); RBO4_1y = imag(RBO4_1);
 
-V_Cyan_Up_1 = L2_Loop3 * exp(j*(q_Cyan_Up_1 + offset));
-V_Blue_1 = L3_Loop3 * exp(j*(q3_Blue_1 + offset));
-V_Brown_1 = L4_Loop3 * exp(j*(q4_Brown + offset)); % Input
+% --- Vectors Case 2 ---
+RA2 = a*exp(j*(q2_sol2 + theta1));
+RBA2 = b*exp(j*(q3_sol2 + theta1));
+RBO4_2 = c*exp(j*(q4 + theta1)); % Input Fixed
 
-% --- Calculate Vectors Case 2 ---
-V_Green_2 = L2_Loop1 * exp(j*(q2_Green_2 + offset));
-V_Yellow_2 = L3_Loop1 * exp(j*(q3_Yellow_2 + offset));
-V_Grey_2 = L4_Shared * exp(j*(q4_Grey_2 + offset));
-
-V_Cyan_Down_2 = L2_Loop2 * exp(j*(q_Cyan_Down_2 + offset));
-V_Red_2 = L3_Loop2 * exp(j*(q3_Red_2 + offset));
-
-V_Cyan_Up_2 = L2_Loop3 * exp(j*(q_Cyan_Up_2 + offset));
-V_Blue_2 = L3_Loop3 * exp(j*(q3_Blue_2 + offset));
-V_Brown_2 = L4_Loop3 * exp(j*(q4_Brown + offset)); % Input
+RA2x = real(RA2); RA2y = imag(RA2);
+RBA2x = real(RBA2); RBA2y = imag(RBA2);
+RBO4_2x = real(RBO4_2); RBO4_2y = imag(RBO4_2);
 
 
-% --- Plot Case 1 ---
-figure(1)
-title('Case 1: Open Circuit'); hold on;
-quiver(0,0, RO4O2x, RO4O2y, 0, 'Color', [1 0 1], 'LineWidth', 4, 'MaxHeadSize', 0.5); % Pink
-% Loop 1
-quiver(0,0, real(V_Green_1), imag(V_Green_1), 0, 'green', 'LineWidth', 3, 'MaxHeadSize', 0.5);
-quiver(real(V_Green_1), imag(V_Green_1), real(V_Yellow_1), imag(V_Yellow_1), 0, 'yellow', 'LineWidth', 3, 'MaxHeadSize', 0.5);
-quiver(RO4O2x, RO4O2y, real(V_Grey_1), imag(V_Grey_1), 0, 'Color', [0.5 0.5 0.5], 'LineWidth', 3, 'MaxHeadSize', 0.5);
-% Loop 2
-quiver(0,0, real(V_Cyan_Down_1), imag(V_Cyan_Down_1), 0, 'cyan', 'LineWidth', 3, 'MaxHeadSize', 0.5);
-quiver(real(V_Cyan_Down_1), imag(V_Cyan_Down_1), real(V_Red_1), imag(V_Red_1), 0, 'red', 'LineWidth', 3, 'MaxHeadSize', 0.5);
-% Loop 3
-quiver(0,0, real(V_Cyan_Up_1), imag(V_Cyan_Up_1), 0, 'cyan', 'LineWidth', 3, 'MaxHeadSize', 0.5, 'LineStyle', ':');
-quiver(real(V_Cyan_Up_1), imag(V_Cyan_Up_1), real(V_Blue_1), imag(V_Blue_1), 0, 'blue', 'LineWidth', 3, 'MaxHeadSize', 0.5);
-quiver(RO4O2x, RO4O2y, real(V_Brown_1), imag(V_Brown_1), 0, 'Color', [0.85 0.5 0.1], 'LineWidth', 3, 'MaxHeadSize', 0.5);
+% ==========================================
+% 5. PLOTTING (Separated)
+% ==========================================
+color_Pink = [1, 0.07, 0.57];
+color_LBlue = [0.2, 0.8, 1];
+color_Blue = [0, 0, 1];
+color_Brown = [0.6, 0.4, 0.2];
+
+% --- Figure 1: Case 1 ---
+figure(1);
+hold on;
+quiver(0,0, O4x, O4y, 0, 'Color', color_Pink, 'LineWidth', 4, 'MaxHeadSize', 0.5); % Ground
+quiver(0,0, RA1x, RA1y, 0, 'Color', color_LBlue, 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 2
+quiver(RA1x, RA1y, RBA1x, RBA1y, 0, 'Color', color_Blue, 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 3
+quiver(O4x, O4y, RBO4_1x, RBO4_1y, 0, 'Color', color_Brown, 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 4
 axis equal; grid on;
+title(['Case 1: Solution 1 (Parallel/Open), \theta_4 = ' num2str(q4_global_deg)]);
+xlabel('x'); ylabel('y');
 
-% --- Plot Case 2 ---
-figure(2)
-title('Case 2: Crossed Circuit'); hold on;
-quiver(0,0, RO4O2x, RO4O2y, 0, 'Color', [1 0 1], 'LineWidth', 4, 'MaxHeadSize', 0.5); % Pink
-% Loop 1
-quiver(0,0, real(V_Green_2), imag(V_Green_2), 0, 'green', 'LineWidth', 3, 'MaxHeadSize', 0.5);
-quiver(real(V_Green_2), imag(V_Green_2), real(V_Yellow_2), imag(V_Yellow_2), 0, 'yellow', 'LineWidth', 3, 'MaxHeadSize', 0.5);
-quiver(RO4O2x, RO4O2y, real(V_Grey_2), imag(V_Grey_2), 0, 'Color', [0.5 0.5 0.5], 'LineWidth', 3, 'MaxHeadSize', 0.5);
-% Loop 2
-quiver(0,0, real(V_Cyan_Down_2), imag(V_Cyan_Down_2), 0, 'cyan', 'LineWidth', 3, 'MaxHeadSize', 0.5);
-quiver(real(V_Cyan_Down_2), imag(V_Cyan_Down_2), real(V_Red_2), imag(V_Red_2), 0, 'red', 'LineWidth', 3, 'MaxHeadSize', 0.5);
-% Loop 3
-quiver(0,0, real(V_Cyan_Up_2), imag(V_Cyan_Up_2), 0, 'cyan', 'LineWidth', 3, 'MaxHeadSize', 0.5, 'LineStyle', ':');
-quiver(real(V_Cyan_Up_2), imag(V_Cyan_Up_2), real(V_Blue_2), imag(V_Blue_2), 0, 'blue', 'LineWidth', 3, 'MaxHeadSize', 0.5);
-quiver(RO4O2x, RO4O2y, real(V_Brown_2), imag(V_Brown_2), 0, 'Color', [0.85 0.5 0.1], 'LineWidth', 3, 'MaxHeadSize', 0.5);
+% --- Figure 2: Case 2 ---
+figure(2);
+hold on;
+quiver(0,0, O4x, O4y, 0, 'Color', color_Pink, 'LineWidth', 4, 'MaxHeadSize', 0.5); % Ground
+quiver(0,0, RA2x, RA2y, 0, 'Color', color_LBlue, 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 2
+quiver(RA2x, RA2y, RBA2x, RBA2y, 0, 'Color', color_Blue, 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 3
+quiver(O4x, O4y, RBO4_2x, RBO4_2y, 0, 'Color', color_Brown, 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 4
 axis equal; grid on;
+title(['Case 2: Solution 2 (Crossed), \theta_4 = ' num2str(q4_global_deg)]);
+xlabel('x'); ylabel('y');
 
-% Results
-disp('--- Results (From Brown Input) ---');
-disp(['Case 1 Green: ', num2str(rad2deg(q2_Green_1)+offset_deg)]);
-disp(['Case 2 Green: ', num2str(rad2deg(q2_Green_2)+offset_deg)]);
+
+% Display Results
+disp('--- Results ---');
+disp(['Case 1: Theta 2 = ' num2str(q2_global_1) ' deg, Theta 3 = ' num2str(q3_global_1) ' deg']);
+disp(['Case 2: Theta 2 = ' num2str(q2_global_2) ' deg, Theta 3 = ' num2str(q3_global_2) ' deg']);
