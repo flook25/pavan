@@ -133,4 +133,11 @@ quiver(0,0, RA2x, RA2y, 0, 'cyan', 'MaxHeadSize', 0.5, 'LineWidth', 3);
 % Coupler (Blue) - Link 3
 quiver(RA2x, RA2y, RBA2x, RBA2y, 0, 'blue', 'MaxHeadSize', 0.5, 'LineWidth', 3); 
 % Rocker (Brown) - Link 4 (Input)
-quiver(RO4O2x, RO4O2y, RBO4_2x, RBO4_2y, 0, 'Color', [0.85
+quiver(RO4O2x, RO4O2y, RBO4_2x, RBO4_2y, 0, 'Color', [0.85 0.5 0.1], 'MaxHeadSize', 0.5, 'LineWidth', 3); 
+axis equal; grid on;
+xlabel('x (m)'); ylabel('y (m)');
+
+% Display Results
+disp('--- Results ---');
+disp(['Case 1 (Parallel): Theta 2 = ', num2str(q2_d1), ', Theta 3 = ', num2str(q3_d1)]);
+disp(['Case 2 (Crossed) : Theta 2 = ', num2str(q2_d2), ', Theta 3 = ', num2str(q3_d2)]);
