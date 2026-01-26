@@ -2,140 +2,129 @@ clear all
 close all
 clc
 
-% 1. Parameter Definitions
-L1 = 210; % Ground (Pink)
-L2 = 118; % Link 2 (Light Blue)
-L3 = 210; % Link 3 (Blue)
-L4 = 118; % Link 4 (Brown)
+% --- 1. Define Parameters (Unit: meters) ---
+L1 = 0.210; % Ground (d) - Pink
+L2 = 0.118; % Crank (a) - Cyan (Link 2)
+L3 = 0.210; % Coupler (b) - Red (Link 3)
+L4 = 0.118; % Rocker (c) - Grey (Link 4)
 
-d = L1;
 a = L2;
 b = L3;
 c = L4;
+d = L1;
 
-% Ground angle
-theta1_deg = 0.81;
-theta1 = deg2rad(theta1_deg);
+% Ground Offset
+offset_deg = 0.81;
+offset = deg2rad(offset_deg);
 
-% Input: Theta 4 (Global)
-% *** แก้ไข: ใช้ค่าติดลบเพื่อให้ Link 4 (น้ำตาล) อยู่ "ข้างล่าง" ชมพู ***
-q4_global_deg = -102.5; 
-q4_global = deg2rad(q4_global_deg);
+% --- 2. Define K Constants (Inverse Analysis: Link 4 is Input) ---
+K1 = d/c; 
+K2 = d/a;
+K3 = (c^2 - b^2 + a^2 + d^2)/(2*c*a); 
 
-% Local Theta 4
-q4 = q4_global - theta1;
+% ==========================================
+% CASE 1: Open/Parallel (Input Theta 4 = -102.5)
+% (Link 2 will be DOWN)
+% ==========================================
+q4d = -102.5; % Using negative to force Link 4 DOWN
+q4 = deg2rad(q4d) - offset; 
 
-% ---------------------------------------------------------
-% STEP 1: Find Theta 2 given Theta 4 (Inverse Kinematics)
-% ---------------------------------------------------------
-K1_inv = d/c; 
-K2_inv = d/a; 
-K3_inv = (c^2 - b^2 + a^2 + d^2)/(2*c*a); 
-
-% Coefficients A, B, C for q2
-A = cos(q4) - K1_inv - K2_inv*cos(q4) + K3_inv;
+% --- Calculate Coefficients for Theta 2 ---
+A = cos(q4) - K1 - K2*cos(q4) + K3;
 B = -2*sin(q4);
-C = K1_inv - (K2_inv + 1)*cos(q4) + K3_inv;
+C = K1 - (K2+1)*cos(q4) + K3;
 
-disc = B^2 - 4*A*C;
+% --- Calculate Coefficients for Theta 3 ---
+P = -2*b*(d + c*cos(q4));
+Q = -2*b*c*sin(q4);
+R = d^2 + c^2 + b^2 - a^2 + 2*d*c*cos(q4);
 
-% หา q2 ทั้ง 2 คำตอบ
-% Sol 1: Parallel (ถ้า q4 ลง, q2 จะลงด้วย)
-q2_sol_1 = 2*atan((-B - sqrt(disc))/(2*A));
-% Sol 2: Crossed (ถ้า q4 ลง, q2 จะขึ้น <-- สิ่งที่คุณต้องการ)
-q2_sol_2 = 2*atan((-B + sqrt(disc))/(2*A));
+D_coef = R - P;
+E_coef = 2*Q;
+F_coef = R + P;
 
-% *** เลือก Case ที่ต้องการ ***
-% Case 1 (Down-Down): ฟ้าลง, น้ำตาลลง
-q2_target_1 = q2_sol_1;
+% --- Solve for Theta 2 & 3 (Case 1: Parallel/Down) ---
+% Using -sqrt for q2 (Usually gives the parallel/down solution)
+q2_sol1 = 2*atan((-B - sqrt(B^2 - 4*A*C))/(2*A));
+% Using -sqrt for q3 (Geometric match for parallel)
+q3_sol1 = 2*atan((-E_coef - sqrt(E_coef^2 - 4*D_coef*F_coef))/(2*D_coef));
 
-% Case 2 (Up-Down): ฟ้าขึ้น (ถูก), น้ำตาลลง (ถูก)
-q2_target_2 = q2_sol_2;
-
-
-% ---------------------------------------------------------
-% STEP 2: Find Theta 3 for EACH Case
-% ---------------------------------------------------------
-K1 = d/a;
-K4 = d/b;
-K5 = (c^2 - d^2 - a^2 - b^2)/(2*a*b);
-
-% --- Calculate q3 for Case 1 ---
-D1 = cos(q2_target_1) - K1 + K4*cos(q2_target_1) + K5;
-E1 = -2*sin(q2_target_1);
-F1 = K1 + (K4 - 1)*cos(q2_target_1) + K5;
-% Parallel mode: q3 ขนาน ground
-q3_local_1 = 2*atan((-E1 - sqrt(E1^2 - 4*D1*F1))/(2*D1));
-
-% --- Calculate q3 for Case 2 (The one you want) ---
-D2 = cos(q2_target_2) - K1 + K4*cos(q2_target_2) + K5;
-E2 = -2*sin(q2_target_2);
-F2 = K1 + (K4 - 1)*cos(q2_target_2) + K5;
-% Crossed mode: q3 ไขว้
-q3_local_2 = 2*atan((-E2 + sqrt(E2^2 - 4*D2*F2))/(2*D2));
+q2_d1 = rad2deg(q2_sol1) + offset_deg;
+q3_d1 = rad2deg(q3_sol1) + offset_deg;
 
 
-% Calculate Global Angles
-q2_global_1 = rad2deg(q2_target_1 + theta1);
-q3_global_1 = rad2deg(q3_local_1 + theta1);
+% ==========================================
+% CASE 2: Crossed (Input Theta 4 = -102.5)
+% (Link 2 will be UP)
+% ==========================================
+% q4 is the same
 
-q2_global_2 = rad2deg(q2_target_2 + theta1);
-q3_global_2 = rad2deg(q3_local_2 + theta1);
+% --- Solve for Theta 2 & 3 (Case 2: Crossed/Up) ---
+% Using +sqrt for q2 (Usually gives the crossed/up solution)
+q2_sol2 = 2*atan((-B + sqrt(B^2 - 4*A*C))/(2*A));
+% Using +sqrt for q3 (Geometric match for crossed)
+q3_sol2 = 2*atan((-E_coef + sqrt(E_coef^2 - 4*D_coef*F_coef))/(2*D_coef));
 
-
-% ---------------------------------------------------------
-% PLOTTING PREPARATION
-% ---------------------------------------------------------
-color_Pink = [1, 0.07, 0.57];
-color_LBlue = [0.2, 0.8, 1];
-color_Blue = [0, 0, 1];
-color_Brown = [0.6, 0.4, 0.2];
-
-RO4O2 = d*exp(j*theta1); 
-O4x = real(RO4O2); O4y = imag(RO4O2);
-
-% --- Case 1 Vectors (Blue Down, Brown Down) ---
-RA1 = a*exp(j*(q2_target_1 + theta1));
-RBA1 = b*exp(j*(q3_local_1 + theta1));
-Ax1 = real(RA1); Ay1 = imag(RA1);
-Bx1 = real(RA1 + RBA1); By1 = imag(RA1 + RBA1);
-
-% --- Case 2 Vectors (Blue Up, Brown Down) ---
-RA2 = a*exp(j*(q2_target_2 + theta1));
-RBA2 = b*exp(j*(q3_local_2 + theta1));
-Ax2 = real(RA2); Ay2 = imag(RA2);
-Bx2 = real(RA2 + RBA2); By2 = imag(RA2 + RBA2);
+q2_d2 = rad2deg(q2_sol2) + offset_deg;
+q3_d2 = rad2deg(q3_sol2) + offset_deg;
 
 
-% ---------------------------------------------------------
-% PLOTTING
-% ---------------------------------------------------------
+% ==========================================
+% Vector Calculation & Plotting
+% ==========================================
+% Ground Vector
+RO4O2 = d*exp(j*offset); 
+RO4O2x = real(RO4O2); RO4O2y = imag(RO4O2);
 
-% --- Figure 1: Case 1 (Parallel / Both Down) ---
-figure(1);
+% --- Vector Case 1 (Open/Down) ---
+RA1 = a*exp(j*(q2_sol1 + offset));        
+RBA1 = b*exp(j*(q3_sol1 + offset));        
+RBO4_1 = c*exp(j*(q4 + offset));    
+
+RA1x = real(RA1); RA1y = imag(RA1);
+RBA1x = real(RBA1); RBA1y = imag(RBA1); 
+RBO4_1x = real(RBO4_1); RBO4_1y = imag(RBO4_1);
+
+% --- Vector Case 2 (Crossed/Up) ---
+RA2 = a*exp(j*(q2_sol2 + offset));        
+RBA2 = b*exp(j*(q3_sol2 + offset));
+RBO4_2 = c*exp(j*(q4 + offset));    
+
+RA2x = real(RA2); RA2y = imag(RA2);
+RBA2x = real(RBA2); RBA2y = imag(RBA2); 
+RBO4_2x = real(RBO4_2); RBO4_2y = imag(RBO4_2);
+
+% --- Plotting Case 1 ---
+figure(1)
+title(['Case 1: Open/Parallel (q4 = ' num2str(q4d) ')']);
 hold on;
-quiver(0, 0, O4x, O4y, 0, 'Color', color_Pink, 'LineWidth', 4, 'MaxHeadSize', 0.5); % Ground
-quiver(0, 0, Ax1, Ay1, 0, 'Color', color_LBlue, 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 2
-quiver(Ax1, Ay1, Bx1-Ax1, By1-Ay1, 0, 'Color', color_Blue, 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 3
-quiver(O4x, O4y, Bx1-O4x, By1-O4y, 0, 'Color', color_Brown, 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 4
+% Ground (Pink)
+quiver(0,0, RO4O2x, RO4O2y, 0, 'Color', [1 0 1], 'MaxHeadSize', 0.5, 'LineWidth', 4); 
+% Crank (Cyan) - Link 2
+quiver(0,0, RA1x, RA1y, 0, 'cyan', 'MaxHeadSize', 0.5, 'LineWidth', 3); 
+% Coupler (Red) - Link 3
+quiver(RA1x, RA1y, RBA1x, RBA1y, 0, 'red', 'MaxHeadSize', 0.5, 'LineWidth', 3); 
+% Rocker (Grey) - Link 4
+quiver(RO4O2x, RO4O2y, RBO4_1x, RBO4_1y, 0, 'Color', [0.5 0.5 0.5], 'MaxHeadSize', 0.5, 'LineWidth', 3); 
 axis equal; grid on;
-title(['Case 1: Parallel (Both Down), \theta_4 = ' num2str(q4_global_deg)]);
-xlabel('x'); ylabel('y');
+xlabel('x (m)'); ylabel('y (m)');
 
-
-% --- Figure 2: Case 2 (Crossed / Blue Up, Brown Down) ---
-figure(2);
+% --- Plotting Case 2 ---
+figure(2)
+title(['Case 2: Crossed/Up (q4 = ' num2str(q4d) ')']);
 hold on;
-quiver(0, 0, O4x, O4y, 0, 'Color', color_Pink, 'LineWidth', 4, 'MaxHeadSize', 0.5); % Ground
-quiver(0, 0, Ax2, Ay2, 0, 'Color', color_LBlue, 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 2 (UP)
-quiver(Ax2, Ay2, Bx2-Ax2, By2-Ay2, 0, 'Color', color_Blue, 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 3
-quiver(O4x, O4y, Bx2-O4x, By2-O4y, 0, 'Color', color_Brown, 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 4 (DOWN)
+% Ground (Pink)
+quiver(0,0, RO4O2x, RO4O2y, 0, 'Color', [1 0 1], 'MaxHeadSize', 0.5, 'LineWidth', 4); 
+% Crank (Cyan) - Link 2
+quiver(0,0, RA2x, RA2y, 0, 'cyan', 'MaxHeadSize', 0.5, 'LineWidth', 3); 
+% Coupler (Red) - Link 3
+quiver(RA2x, RA2y, RBA2x, RBA2y, 0, 'red', 'MaxHeadSize', 0.5, 'LineWidth', 3); 
+% Rocker (Grey) - Link 4
+quiver(RO4O2x, RO4O2y, RBO4_2x, RBO4_2y, 0, 'Color', [0.5 0.5 0.5], 'MaxHeadSize', 0.5, 'LineWidth', 3); 
 axis equal; grid on;
-title(['Case 2: Crossed (Blue Up, Brown Down), \theta_4 = ' num2str(q4_global_deg)]);
-xlabel('x'); ylabel('y');
-
+xlabel('x (m)'); ylabel('y (m)');
 
 % Display Results
-fprintf('--- Results ---\n');
-fprintf('Case 1 (Both Down): Theta 2 = %.4f, Theta 3 = %.4f\n', q2_global_1, q3_global_1);
-fprintf('Case 2 (Blue Up, Brown Down): Theta 2 = %.4f, Theta 3 = %.4f\n', q2_global_2, q3_global_2);
+disp('--- Results ---');
+disp(['Case 1 (Open/Down): Theta 2 = ', num2str(q2_d1), ', Theta 3 = ', num2str(q3_d1)]);
+disp(['Case 2 (Crossed/Up): Theta 2 = ', num2str(q2_d2), ', Theta 3 = ', num2str(q3_d2)]);
