@@ -2,9 +2,9 @@ clear all
 close all
 clc
 
-% ==========================================
+
 % 1. PARAMETERS & INPUT
-% ==========================================
+
 L1 = 0.210; % Ground (Pink) - d
 L2 = 0.118; % Crank (Cyan/Red) - a
 L3 = 0.210; % Coupler (Blue) - b
@@ -24,9 +24,8 @@ theta1 = deg2rad(theta1_deg);
 q4_global_deg = -102.5; 
 q4 = deg2rad(q4_global_deg) - theta1; % Local Angle
 
-% ==========================================
 % 2. CALCULATION (Find q2, q3 from q4)
-% ==========================================
+
 
 % Norton's K Constants
 K1 = d/a;
@@ -55,9 +54,9 @@ q3_sol1 = angle(Vec3_1);
 Vec3_2 = c*exp(1j*q4) + d - a*exp(1j*q2_sol2);
 q3_sol2 = angle(Vec3_2);
 
-% ==========================================
+
 % 3. CONVERT TO GLOBAL
-% ==========================================
+
 % Global Angles
 q2_1g = q2_sol1 + theta1;
 q3_1g = q3_sol1 + theta1;
@@ -71,9 +70,9 @@ fprintf('--- Results ---\n');
 fprintf('Case 1: Theta2 = %.4f deg, Theta3 = %.4f deg\n', rad2deg(q2_1g), rad2deg(q3_1g));
 fprintf('Case 2: Theta2 = %.4f deg, Theta3 = %.4f deg\n', rad2deg(q2_2g), rad2deg(q3_2g));
 
-% ==========================================
+
 % 4. PLOTTING BOTH CASES
-% ==========================================
+
 figure('Name', '4-Bar Linkage Analysis: Both Solutions', 'NumberTitle', 'off');
 
 % --- PLOT CASE 1 ---
