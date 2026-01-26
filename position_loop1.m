@@ -6,125 +6,153 @@ clc
 % 1. PARAMETERS & INPUT
 % ==========================================
 L1 = 0.210; % Ground (Pink) - d
-L2 = 0.118; % Crank (Cyan) - Link 2 - a
-L3 = 0.210; % Coupler (Blue) - Link 3 - b
-L4 = 0.118; % Rocker (Brown) - Link 4 - c
+L2 = 0.118; % Crank (Cyan) - a
+L3 = 0.210; % Coupler (Blue) - b
+L4 = 0.118; % Rocker (Brown) - c
 
+% Assign variables
+d = L1;
 a = L2;
 b = L3;
 c = L4;
-d = L1;
 
-% Ground Offset Angle
+% Ground Offset (Global rotation)
 theta1_deg = 0.81;
 theta1 = deg2rad(theta1_deg);
 
 % --- INPUT: Link 4 (Brown) ---
-% โจทย์กำหนด q4 (global) มาให้
+% โจทย์กำหนด Link 4 เป็น Input
 q4_global_deg = -102.5; 
-q4 = deg2rad(q4_global_deg) - theta1; % Convert to Local Angle (relative to Link 1)
+% แปลงเป็น Local frame (เทียบกับแนวแกนของ Link 1)
+q4 = deg2rad(q4_global_deg) - theta1; 
 
 % ==========================================
-% 2. CALCULATION (Find q2 given q4)
+% 2. CALCULATION (Find q2 and q3 given q4)
 % ==========================================
 
-% Norton Constants
-K1 = d/a;
-K2 = d/c;
-K3 = (a^2 - b^2 + c^2 + d^2)/(2*a*c);
+% --- STEP 1: หา q2 (Link 2) จาก q4 ---
+% ในกรณีนี้ Input คือ q4 (Link c) และ Output คือ q2 (Link a)
+% เราจะใช้สมการรูปแบบเดียวกับ Norton แต่สลับค่าคงที่ K เพื่อแก้หา q2
+% เปรียบเสมือนการมองย้อนกลับ (Inverse)
 
-% เนื่องจาก Input คือ q4 และต้องการหา q2
-% เราจึงต้องสลับบทบาทของตัวแปรในสมการ A, B, C
-% (เปรียบเทียบกับ Standard Form ที่หา q4 จาก q2)
-% โดยใช้ Logic: K1<->K2 และ q2<->q4
+% นิยาม K สำหรับการหา q2 จาก q4 (Swap a and c conceptually)
+K1_inv = d/c; 
+K2_inv = d/a;
+K3_inv = (c^2 - b^2 + a^2 + d^2)/(2*c*a); 
 
-A = cos(q4) - K2 - K1*cos(q4) + K3;
+% คำนวณ A, B, C โดยใช้ q4 เป็นตัวแปรต้น
+A = cos(q4) - K1_inv - K2_inv*cos(q4) + K3_inv;
 B = -2*sin(q4);
-C = K2 - (K1+1)*cos(q4) + K3;
+C = K1_inv - (K2_inv+1)*cos(q4) + K3_inv;
 
-% Solve for q2 (Link 2 angle) - 2 Solutions
-% Case 1:
-q2_sol1 = 2*atan((-B - sqrt(B^2-4*A*C))/(2*A)); 
-% Case 2:
-q2_sol2 = 2*atan((-B + sqrt(B^2-4*A*C))/(2*A));
+% แก้สมการหา q2 (2 คำตอบ: Crossed และ Open)
+% ใช้สูตร 2*atan ตาม Format
+det_val = B^2 - 4*A*C;
+if det_val < 0
+    error('No solution: Linkage cannot define valid geometry.');
+end
 
-% Convert to Degree (Local)
-q2_sol1d = rad2deg(q2_sol1);
-q2_sol2d = rad2deg(q2_sol2);
+% q2_sol1 และ q2_sol2 (Local angles)
+q2_sol1 = 2*atan((-B + sqrt(det_val))/(2*A)); % Solution 1
+q2_sol2 = 2*atan((-B - sqrt(det_val))/(2*A)); % Solution 2
 
-% Calculate q3 (Link 3 angle) from Vector Loop
-% Loop: R2 + R3 - R4 - R1 = 0  => R3 = R1 + R4 - R2
-% R1 = d, R4 = c*e^jq4, R2 = a*e^jq2
-% เราใช้ atan2 หรือ angle function เพื่อหา q3 โดยตรงจาก Vector Sum
+% --- STEP 2: หา q3 (Link 3) จาก q2 ที่ได้ ---
+% เมื่อรู้ q2 แล้ว เราสามารถหา q3 ได้โดยใช้ชุด K มาตรฐาน
+K1 = d/a;
+K4 = d/b;
+K5 = (c^2 - d^2 - a^2 - b^2)/(2*a*b);
 
-% Solution Set 1 (คู่กับ q2_sol1)
-R3_vec1 = d + c*exp(1j*q4) - a*exp(1j*q2_sol1);
-q3_sol1 = angle(R3_vec1);
+% ต้องคำนวณแยก 2 กรณีสำหรับ q2 แต่ละค่า
+% Case 1: ใช้ q2_sol1
+D1 = cos(q2_sol1) - K1 + K4*cos(q2_sol1) + K5;
+E1 = -2*sin(q2_sol1);
+F1 = K1 + (K4-1)*cos(q2_sol1) + K5;
+% หา q3 สำหรับ Case 1 (เลือก sign ให้สอดคล้องกับ vector loop)
+q3_sol1 = 2*atan((-E1 - sqrt(E1^2 - 4*D1*F1))/(2*D1)); 
 
-% Solution Set 2 (คู่กับ q2_sol2)
-R3_vec2 = d + c*exp(1j*q4) - a*exp(1j*q2_sol2);
-q3_sol2 = angle(R3_vec2);
+% Case 2: ใช้ q2_sol2
+D2 = cos(q2_sol2) - K1 + K4*cos(q2_sol2) + K5;
+E2 = -2*sin(q2_sol2);
+F2 = K1 + (K4-1)*cos(q2_sol2) + K5;
+% หา q3 สำหรับ Case 2
+q3_sol2 = 2*atan((-E2 + sqrt(E2^2 - 4*D2*F2))/(2*D2));
 
-q3_sol1d = rad2deg(q3_sol1);
-q3_sol2d = rad2deg(q3_sol2);
-
-% ==========================================
-% 3. VECTOR CONSTRUCTION FOR PLOTTING
-% ==========================================
-% เลือกใช้ Solution Set 2 (Open Config) หรือ Set 1 ตามต้องการ
-% ในที่นี้สมมติเลือก Set 2 เพื่อพล็อต
-q2_plot = q2_sol2; 
-q3_plot = q3_sol2;
-
-% Offset กลับเป็น Global เพื่อการพล็อตที่ถูกต้อง
-q2_global = q2_plot + theta1;
-q3_global = q3_plot + theta1;
-q4_real_global = q4 + theta1; 
-q1_global = theta1;
-
-% สร้าง Vector (ใช้ Global Angle เพื่อพล็อตลงกราฟจริง)
-RO2 = 0; % จุดเริ่มต้น
-RO4 = d*exp(1j*q1_global); % Ground Vector
-
-RA  = a*exp(1j*q2_global);      % Link 2 vector
-RB_from_A = b*exp(1j*q3_global); % Link 3 vector
-RB_from_O4 = c*exp(1j*q4_real_global); % Link 4 vector
-
-% Absolute Positions
-Pos_A = RO2 + RA;
-Pos_B = RO2 + RA + RB_from_A;
-Pos_O4 = RO4;
-
-% แยก Component สำหรับ Quiver
-RAx = real(RA);      RAy = imag(RA);
-RBAx = real(RB_from_A); RBAy = imag(RB_from_A);
-RO4x = real(RO4);    RO4y = imag(RO4);
-RBO4x = real(RB_from_O4); RBO4y = imag(RB_from_O4);
 
 % ==========================================
-% 4. PLOT
+% 3. PREPARE VECTORS FOR PLOTTING
 % ==========================================
+
+% เลือก Case ที่ต้องการ Plot (เลือก Case 2 ซึ่งมักเป็น Open Config ในบริบทนี้)
+q2_select = q2_sol2;
+q3_select = q3_sol2;
+
+% แปลงกลับเป็น Global Angle เพื่อการพล็อตที่ถูกต้อง
+q2_plot_global = q2_select + theta1;
+q3_plot_global = q3_select + theta1;
+q4_plot_global = q4 + theta1; % หรือเท่ากับ deg2rad(q4_global_deg)
+
+% คำนวณเวกเตอร์ (ตาม Format ที่ให้มา)
+% หมายเหตุ: การคำนวณเวกเตอร์ใช้มุม Global เพื่อให้ทิศทางถูกต้องบนกราฟ
+RA = a*exp(1j*q2_plot_global);      % Vector Link 2 (Red)
+RBA2 = b*exp(1j*q3_plot_global);    % Vector Link 3 (Blue)
+
+% คำนวณตำแหน่งจุด B (Position Vector)
+RB2 = RA + RBA2; 
+
+% แยก Component (Real/Imag)
+RAx = real(RA);
+RAy = imag(RA);
+
+RBA2x = real(RBA2);
+RBA2y = imag(RBA2);
+
+RB2x = real(RB2);
+RB2y = imag(RB2);
+
+% คำนวณ Link 4 และ Ground เพื่อวาดให้ครบวง
+RO4O2 = d*exp(1j*theta1);           % Vector Ground (จาก Origin ไป O4)
+RBO42 = c*exp(1j*q4_plot_global);   % Vector Link 4 (จาก O4 ไป B)
+
+RO4O2x = real(RO4O2);
+RO4O2y = imag(RO4O2);
+
+RBO42x = real(RBO42);
+RBO42y = imag(RBO42);
+
+
+% ==========================================
+% 4. DISPLAY & PLOT
+% ==========================================
+fprintf('--- Results (Input Theta4 = %.2f deg) ---\n', q4_global_deg);
+fprintf('Theta 2 (Global): %.4f deg\n', rad2deg(q2_plot_global));
+fprintf('Theta 3 (Global): %.4f deg\n', rad2deg(q3_plot_global));
+
 figure;
-hold on; axis equal; grid on;
+hold on;
+axis equal;
+grid on;
 
-% Plot Ground (O2 -> O4)
-quiver(0, 0, RO4x, RO4y, 0, 'k', 'LineWidth', 2, 'MaxHeadSize', 0.5); 
+% 1. Plot Link 2 (RA) - สีแดง (Red)
+quiver(0, 0, RAx, RAy, 0, 'red', 'MaxHeadSize', 0.5, 'LineWidth', 2);
 
-% Plot Link 2 (Crank) - O2 -> A
-quiver(0, 0, RAx, RAy, 0, 'r', 'LineWidth', 2, 'MaxHeadSize', 0.5);
+% 2. Plot Link 3 (RBA) - สีน้ำเงิน (Blue) เริ่มที่ปลาย RA
+quiver(RAx, RAy, RBA2x, RBA2y, 0, 'blue', 'MaxHeadSize', 0.5, 'LineWidth', 2);
 
-% Plot Link 3 (Coupler) - A -> B
-quiver(RAx, RAy, RBAx, RBAy, 0, 'b', 'LineWidth', 2, 'MaxHeadSize', 0.5);
+% 3. Plot Position Vector B (RB2) - สีเขียว (Green) จากจุด Origin
+quiver(0, 0, RB2x, RB2y, 0, 'green', 'MaxHeadSize', 0.5, 'LineWidth', 2);
 
-% Plot Link 4 (Rocker/Input) - O4 -> B
-% Note: Quiver start at O4, vector is RBO4
-quiver(RO4x, RO4y, RBO4x, RBO4y, 0, 'color', [0.6 0.3 0], 'LineWidth', 2, 'MaxHeadSize', 0.5);
+% 4. Plot Ground (RO4O2) - สีดำ (Black) จาก Origin ไป O4
+quiver(0, 0, RO4O2x, RO4O2y, 0, 'black', 'MaxHeadSize', 0.5, 'LineWidth', 2);
 
-title(['4-Bar Linkage Position (Input \theta_4 = ' num2str(q4_global_deg) '^\circ)']);
-xlabel('X'); ylabel('Y');
+% 5. Plot Link 4 (RBO4) - สีดำ (Black) จาก O4 ไป B
+quiver(RO4O2x, RO4O2y, RBO42x, RBO42y, 0, 'black', 'MaxHeadSize', 0.5, 'LineWidth', 2);
 
-% แสดงผลลัพธ์ใน Command Window
-fprintf('--- Results ---\n');
-fprintf('Input Theta4 (Global): %.4f deg\n', q4_global_deg);
-fprintf('Calculated Theta2 (Global): %.4f deg\n', rad2deg(q2_global));
-fprintf('Calculated Theta3 (Global): %.4f deg\n', rad2deg(q3_global));
+xlabel('X Position (m)');
+ylabel('Y Position (m)');
+title(['4-Bar Linkage Analysis (Input \theta_4 = ', num2str(q4_global_deg), '^\circ)']);
+
+% เพิ่ม Text ระบุจุด
+text(0, 0, ' O_2');
+text(RAx, RAy, ' A');
+text(RB2x, RB2y, ' B');
+text(RO4O2x, RO4O2y, ' O_4');
