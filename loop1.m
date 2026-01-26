@@ -2,7 +2,7 @@ clear all
 close all
 clc
 
-% 1. Parameter Definitions (ห้ามเปลี่ยน)
+% 1. Parameter Definitions 
 L1 = 210; % Length of Link1 d (Ground) - Pink
 L2 = 118; % Length of Link2 a (Input) - Light Blue
 L3 = 210; % Length of Link3 b (Coupler) - Blue
@@ -29,31 +29,26 @@ q4 = q4_global - theta1;
 % STEP 1: Find Theta 2 given Theta 4 (Inverse Kinematics)
 % ---------------------------------------------------------
 
-% Inverse K Constants (Swapping a and c)
-K1_inv = d/c; 
-K2_inv = d/a; 
-K3_inv = (c^2 - b^2 + a^2 + d^2)/(2*c*a); 
+% K Constants (Swapping a and c)
+K1 = d/c; 
+K2 = d/a; 
+K3 = (c^2 - b^2 + a^2 + d^2)/(2*c*a); 
 
 % Coefficients A, B, C for finding q2
-A_inv = cos(q4) - K1_inv - K2_inv*cos(q4) + K3_inv;
-B_inv = -2*sin(q4);
-C_inv = K1_inv - (K2_inv + 1)*cos(q4) + K3_inv;
+A = cos(q4) - K1 - K2*cos(q4) + K3;
+B = -2*sin(q4);
+C = K1 - (K2 + 1)*cos(q4) + K3;
 
 % Solve for q2
-disc = B_inv^2 - 4*A_inv*C_inv;
+disc = B^2 - 4*A*C;
 
-% มี 2 คำตอบสำหรับ q2
-% Sol 1: มักเป็นแบบขนาน (Parallel/Open)
-q2_local_1 = 2*atan((-B_inv - sqrt(disc))/(2*A_inv));
-% Sol 2: มักเป็นแบบไขว้ (Crossed/Anti-Parallel) <-- เราจะลองเช็คตัวนี้หรือสลับกัน
-q2_local_2 = 2*atan((-B_inv + sqrt(disc))/(2*A_inv));
 
-% เงื่อนไข: "ลิ้งฟ้า (L2) อยู่บน" --> เลือก q2 ที่ทำให้ y > 0 หรือมุมเป็นบวก
-% ในกรณีขนาน q2 จะใกล้เคียง q4 (102.5) ซึ่งอยู่บนแน่นอน
-% แต่ถ้าคุณต้องการ "เปลี่ยนทิศ" อาจจะหมายถึงการเลือก Sol 2 
-% หรือถ้า Sol 2 ลงล่าง เราต้องใช้ Sol 1 แต่ "เปลี่ยนทิศ q3" แทน
+% Sol 1 (Parallel/Open)
+q2_local_1 = 2*atan((-B - sqrt(disc))/(2*A));
+% Sol 2 (Crossed/Anti-Parallel) 
+q2_local_2 = 2*atan((-B + sqrt(disc))/(2*A));
 
-% เราจะเลือกใช้ Sol 1 (ที่เป็นบวกแน่ๆ) เป็นฐาน แล้วไปเปลี่ยนทิศที่ q3 แทน
+
 q2_target = q2_local_1; 
 
 % ---------------------------------------------------------
@@ -70,12 +65,9 @@ F = K1 + (K4 - 1)*cos(q2_target) + K5;
 % Solve for q3
 disc_q3 = E^2 - 4*D*F;
 
-% *** จุดเปลี่ยนทิศ ***
-% ปกติเราใช้ (-E - sqrt...) สำหรับ Open
-% เพื่อ "เปลี่ยนทิศ" เราจะใช้ (+ sqrt...)
 q3_local = 2*atan((-E + sqrt(disc_q3))/(2*D)); 
 
-% คำนวณค่า Global
+% Calculate Global
 q2_global = rad2deg(q2_target + theta1);
 q3_global = rad2deg(q3_local + theta1);
 
@@ -106,10 +98,10 @@ hold on;
 % 1. Ground (Pink) - Link 1
 quiver(O2(1), O2(2), O4(1)-O2(1), O4(2)-O2(2), 0, 'Color', color_Pink, 'LineWidth', 4, 'MaxHeadSize', 0.5);
 
-% 2. Input Crank (Light Blue) - Link 2 (บังคับอยู่บน)
+% 2. Input Crank (Light Blue) - Link 2 
 quiver(O2(1), O2(2), A(1)-O2(1), A(2)-O2(2), 0, 'Color', color_LBlue, 'LineWidth', 3, 'MaxHeadSize', 0.5);
 
-% 3. Coupler (Blue) - Link 3 (เปลี่ยนทิศ)
+% 3. Coupler (Blue) - Link 3 
 quiver(A(1), A(2), B_from_A(1)-A(1), B_from_A(2)-A(2), 0, 'Color', color_Blue, 'LineWidth', 3, 'MaxHeadSize', 0.5);
 
 % 4. Output Rocker (Brown) - Link 4
