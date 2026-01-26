@@ -26,7 +26,7 @@ K2 = d/c;
 K3 = (a^2 - b^2 + c^2 + d^2)/(2*a*c);
 
 % --- INPUT (Link 2 from Loop 1) ---
-% Input Angle derived from Loop 1 output
+% Input Angle derived from Loop 1 output with 180 deg shift
 q2_global_deg = 39.8576 - 180; 
 q2 = deg2rad(q2_global_deg) - theta1; % Local Angle
 
@@ -44,8 +44,8 @@ if det_val < 0
     error('No real solution');
 end
 
-% Solve for q4 (2 Cases: Swapped Order as requested)
-% Note: Swapped -sqrt and +sqrt to switch Config 1 and Config 2
+% Solve for q4 (2 Cases)
+% Note: Swapped order (-sqrt first) to match desired Configuration 1/2 order
 q4_sol1 = 2*atan((-B - sqrt(det_val))/(2*A)); 
 q4_sol2 = 2*atan((-B + sqrt(det_val))/(2*A));
 
@@ -100,4 +100,25 @@ Bx_1=real(RB_1); By_1=imag(RB_1);
 
 quiver(O2x, O2y, O4x-O2x, O4y-O2y, 0, 'Color', col_ground, 'LineWidth', 2, 'MaxHeadSize', 0.5); % Ground
 quiver(O2x, O2y, Ax-O2x, Ay-O2y, 0, 'Color', col_L2, 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 2
-quiver(Ax, Ay, Bx_1-Ax, By_1-Ay, 0, 'Color', col_L3, 'LineWidth', 3, 'MaxHeadSize', 0.5);
+quiver(Ax, Ay, Bx_1-Ax, By_1-Ay, 0, 'Color', col_L3, 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 3
+quiver(O4x, O4y, Bx_1-O4x, By_1-O4y, 0, 'Color', col_L4, 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 4
+
+title(['Config 1']);
+xlabel('X'); ylabel('Y');
+
+% --- PLOT CASE 2 ---
+subplot(1, 2, 2); 
+hold on; axis equal; grid on;
+
+RBA_2 = b*exp(1j*q3_2g);
+RB_2 = RA + RBA_2;
+
+Bx_2=real(RB_2); By_2=imag(RB_2);
+
+quiver(O2x, O2y, O4x-O2x, O4y-O2y, 0, 'Color', col_ground, 'LineWidth', 2, 'MaxHeadSize', 0.5); % Ground
+quiver(O2x, O2y, Ax-O2x, Ay-O2y, 0, 'Color', col_L2, 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 2
+quiver(Ax, Ay, Bx_2-Ax, By_2-Ay, 0, 'Color', col_L3, 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 3
+quiver(O4x, O4y, Bx_2-O4x, By_2-O4y, 0, 'Color', col_L4, 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 4
+
+title(['Config 2']);
+xlabel('X'); ylabel('Y');
