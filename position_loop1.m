@@ -138,4 +138,17 @@ hold on;
 quiver(0, 0, O4x, O4y, 0, 'Color', color_Pink, 'LineWidth', 4, 'MaxHeadSize', 0.5);
 % 2. Link 2 (Light Blue) - DOWN
 quiver(0, 0, Ax2, Ay2, 0, 'Color', color_LBlue, 'LineWidth', 3, 'MaxHeadSize', 0.5);
-%
+% 3. Link 3 (Blue)
+quiver(Ax2, Ay2, Bx2-Ax2, By2-Ay2, 0, 'Color', color_Blue, 'LineWidth', 3, 'MaxHeadSize', 0.5);
+% 4. Link 4 (Brown)
+quiver(O4x, O4y, Bx2-O4x, By2-O4y, 0, 'Color', color_Brown, 'LineWidth', 3, 'MaxHeadSize', 0.5);
+
+axis equal; grid on;
+title(['Case 2: Down Configuration (Crossed), \theta_4 = ' num2str(q4_global_deg)]);
+xlabel('x'); ylabel('y');
+
+
+% Display Results
+fprintf('--- Results ---\n');
+fprintf('Case 1 (Up):   Theta 2 = %.4f deg, Theta 3 = %.4f deg\n', q2_global_1, q3_global_1);
+fprintf('Case 2 (Down): Theta 2 = %.4f deg, Theta 3 = %.4f deg\n', q2_global_2, q3_global_2);
