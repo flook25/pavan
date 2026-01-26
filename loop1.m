@@ -4,7 +4,7 @@ clc
 
 % 1. Parameter Definitions
 L1 = 210; % Length of Link1 d (Ground) - Pink
-L2 = 118; % Length of Link2 a (Input) - Light Blue
+L2 = 118; % Length of Link2 a (Input) - Light Blue (Note: Your prompt L2=118)
 L3 = 210; % Length of Link3 b (Coupler) - Blue
 L4 = 118; % Length of Link4 c (Output) - Brown
 
@@ -26,11 +26,10 @@ q4 = q4_global - theta1;
 
 % ---------------------------------------------------------
 % STEP 1: Find Theta 2 given Theta 4 (Inverse Kinematics)
-% We swap 'a' (Link 2) and 'c' (Link 4) in the K formulas
-% effectively treating Link 4 as the driver to find Link 2.
+% We treat Link 4 (c) as the driver to find Link 2 (a).
 % ---------------------------------------------------------
 
-% Inverse K Constants (Swapping a and c)
+% Inverse K Constants (Swapping a and c for Inverse Kinematics)
 K1_inv = d/c; 
 K2_inv = d/a; 
 K3_inv = (c^2 - b^2 + a^2 + d^2)/(2*c*a); % Swapped a and c
@@ -41,65 +40,77 @@ B_inv = -2*sin(q4);
 C_inv = K1_inv - (K2_inv + 1)*cos(q4) + K3_inv;
 
 % Solve for q2 using 2*arctan formula
-% q2_sol = 2*atan( (-B +/- sqrt(B^2 - 4AC)) / 2A )
 disc = B_inv^2 - 4*A_inv*C_inv;
 
-q2_local_1 = 2*atan((-B_inv + sqrt(disc))/(2*A_inv));
-q2_local_2 = 2*atan((-B_inv - sqrt(disc))/(2*A_inv));
+% Case 1 & 2 for Theta 2
+q2_local_1 = 2*atan((-B_inv - sqrt(disc))/(2*A_inv)); % Solution 1 (Usually Open/Parallel for this setup)
+q2_local_2 = 2*atan((-B_inv + sqrt(disc))/(2*A_inv)); % Solution 2 (Usually Crossed/Anti-Parallel)
 
-% Choose the solution that matches the parallelogram configuration (usually Solution 1 or 2)
-% Here we calculate for both, but usually one is the open/parallel mode.
-q2_target = q2_local_2; % Selecting the one that matches q2 = q4 logic for parallelogram
-% Note: You can check q2_local_1 as well.
-
-% Convert q2 back to Global for reporting
-theta2_global = rad2deg(q2_target + theta1); 
-% For parallelogram, usually q2_global = q4_global
+% Convert back to global
+q2_global_1 = rad2deg(q2_local_1 + theta1);
+q2_global_2 = rad2deg(q2_local_2 + theta1);
 
 % ---------------------------------------------------------
 % STEP 2: Find Theta 3 given Theta 2
-% Now we use the standard Forward K constants
+% Standard Forward K constants
 % ---------------------------------------------------------
 K1 = d/a;
 K4 = d/b;
 K5 = (c^2 - d^2 - a^2 - b^2)/(2*a*b);
 
-% Coefficients D, E, F for q3 (depend on q2)
-D = cos(q2_target) - K1 + K4*cos(q2_target) + K5;
-E = -2*sin(q2_target);
-F = K1 + (K4 - 1)*cos(q2_target) + K5;
+% --- For Case 1 (Using q2_local_1) ---
+D1 = cos(q2_local_1) - K1 + K4*cos(q2_local_1) + K5;
+E1 = -2*sin(q2_local_1);
+F1 = K1 + (K4 - 1)*cos(q2_local_1) + K5;
 
-% Solve for q3
-disc_q3 = E^2 - 4*D*F;
-q3_local = 2*atan((-E - sqrt(disc_q3))/(2*D)); 
-% Note: Sign choice (-sqrt) usually gives the correct closure for this config
+disc_q3_1 = E1^2 - 4*D1*F1;
+% Note: Sign selection logic for q3 depends on geometric closure.
+% Usually -sqrt goes with Open, +sqrt goes with Crossed, but must be checked.
+% Based on typical parallelogram logic:
+q3_local_1 = 2*atan((-E1 - sqrt(disc_q3_1))/(2*D1)); 
 
-theta3_global = rad2deg(q3_local + theta1);
+q3_global_1 = rad2deg(q3_local_1 + theta1);
 
-% Display Results
-fprintf('Theta 2 (Global) = %.4f degrees\n', theta2_global);
-fprintf('Theta 3 (Global) = %.4f degrees\n', theta3_global);
+% --- For Case 2 (Using q2_local_2) ---
+D2 = cos(q2_local_2) - K1 + K4*cos(q2_local_2) + K5;
+E2 = -2*sin(q2_local_2);
+F2 = K1 + (K4 - 1)*cos(q2_local_2) + K5;
+
+disc_q3_2 = E2^2 - 4*D2*F2;
+q3_local_2 = 2*atan((-E2 + sqrt(disc_q3_2))/(2*D2)); 
+
+q3_global_2 = rad2deg(q3_local_2 + theta1);
 
 % ---------------------------------------------------------
 % PLOTTING
 % ---------------------------------------------------------
 
-% Position Vectors (Global)
-% Ground Origin O2 at (0,0)
-RO2 = 0; 
-RO4 = d*exp(j*theta1); % Ground Vector (Lifted)
+% Vectors Setup
+% Ground
+RO4O2 = d*exp(j*theta1); 
+RO4O2x = real(RO4O2); RO4O2y = imag(RO4O2);
 
-% Link Vectors
-RA = a*exp(j*(q2_target + theta1));      % Link 2
-RBA = b*exp(j*(q3_local + theta1));      % Link 3
-RBO4 = c*exp(j*(q4 + theta1));           % Link 4
+% --- Case 1: Open Circuit (Solution 1) ---
+RA1 = a*exp(j*(q2_local_1 + theta1));
+RBA1 = b*exp(j*(q3_local_1 + theta1));
+RBO4_1 = c*exp(j*(q4 + theta1));
 
-% Points
-O2x = 0; O2y = 0;
-O4x = real(RO4); O4y = imag(RO4);
-Ax = real(RA); Ay = imag(RA);
-Bx = real(RA + RBA); By = imag(RA + RBA); % B calculated from A
-% B_check = real(RO4 + RBO4); % Check closure
+RA1x = real(RA1); RA1y = imag(RA1);
+% Calculate B from A path (Vector Loop Closure Check)
+RB1x = real(RA1 + RBA1); RB1y = imag(RA1 + RBA1);
+% Calculate B from O4 path (for plotting the link 4)
+RBO4_1x = real(RBO4_1); RBO4_1y = imag(RBO4_1);
+
+
+% --- Case 2: Crossed Circuit (Solution 2) ---
+RA2 = a*exp(j*(q2_local_2 + theta1));
+RBA2 = b*exp(j*(q3_local_2 + theta1));
+RBO4_2 = c*exp(j*(q4 + theta1)); % q4 is input, same for both
+
+RA2x = real(RA2); RA2y = imag(RA2);
+RB2x = real(RA2 + RBA2); RB2y = imag(RA2 + RBA2);
+RBO4_2x = real(RBO4_2); RBO4_2y = imag(RBO4_2);
+
 
 % Colors: Pink(L1), Light Blue(L2), Blue(L3), Brown(L4)
 color_L1 = [1, 0.4, 0.7]; % Pink
@@ -107,18 +118,42 @@ color_L2 = [0.4, 0.8, 1]; % Light Blue
 color_L3 = 'b';           % Blue
 color_L4 = [0.6, 0.4, 0.2]; % Brown
 
-figure;
+
+% --- Figure 1: Case 1 (Open Circuit) ---
+figure(1);
+title(['Case 1: Open Circuit (\theta_4 = ', num2str(q4_global_deg), ')']);
 hold on;
 % Link 1 (Ground) - Pink
-quiver(O2x, O2y, O4x-O2x, O4y-O2y, 0, 'Color', color_L1, 'LineWidth', 3, 'MaxHeadSize', 0.5);
+quiver(0,0, RO4O2x, RO4O2y, 0, 'Color', color_L1, 'LineWidth', 4, 'MaxHeadSize', 0.5);
 % Link 2 (Input) - Light Blue
-quiver(O2x, O2y, Ax-O2x, Ay-O2y, 0, 'Color', color_L2, 'LineWidth', 3, 'MaxHeadSize', 0.5);
-% Link 3 (Coupler) - Blue
-quiver(Ax, Ay, Bx-Ax, By-Ay, 0, 'Color', color_L3, 'LineWidth', 3, 'MaxHeadSize', 0.5);
-% Link 4 (Output) - Brown
-quiver(O4x, O4y, Bx-O4x, By-O4y, 0, 'Color', color_L4, 'LineWidth', 3, 'MaxHeadSize', 0.5);
+quiver(0,0, RA1x, RA1y, 0, 'Color', color_L2, 'LineWidth', 3, 'MaxHeadSize', 0.5);
+% Link 3 (Coupler) - Blue (From A to B)
+quiver(RA1x, RA1y, RB1x-RA1x, RB1y-RA1y, 0, 'Color', color_L3, 'LineWidth', 3, 'MaxHeadSize', 0.5);
+% Link 4 (Output) - Brown (From O4 to B)
+quiver(RO4O2x, RO4O2y, RB1x-RO4O2x, RB1y-RO4O2y, 0, 'Color', color_L4, 'LineWidth', 3, 'MaxHeadSize', 0.5);
 
-axis equal;
-grid on;
-title(['Fourbar Mechanism: \theta_4 = ', num2str(q4_global_deg)]);
-legend('Link 1 (Pink)', 'Link 2 (Lt Blue)', 'Link 3 (Blue)', 'Link 4 (Brown)');
+axis equal; grid on;
+xlabel('x'); ylabel('y');
+
+
+% --- Figure 2: Case 2 (Crossed Circuit) ---
+figure(2);
+title(['Case 2: Crossed Circuit (\theta_4 = ', num2str(q4_global_deg), ')']);
+hold on;
+% Link 1 (Ground) - Pink
+quiver(0,0, RO4O2x, RO4O2y, 0, 'Color', color_L1, 'LineWidth', 4, 'MaxHeadSize', 0.5);
+% Link 2 (Input) - Light Blue
+quiver(0,0, RA2x, RA2y, 0, 'Color', color_L2, 'LineWidth', 3, 'MaxHeadSize', 0.5);
+% Link 3 (Coupler) - Blue (From A to B)
+quiver(RA2x, RA2y, RB2x-RA2x, RB2y-RA2y, 0, 'Color', color_L3, 'LineWidth', 3, 'MaxHeadSize', 0.5);
+% Link 4 (Output) - Brown (From O4 to B)
+quiver(RO4O2x, RO4O2y, RB2x-RO4O2x, RB2y-RO4O2y, 0, 'Color', color_L4, 'LineWidth', 3, 'MaxHeadSize', 0.5);
+
+axis equal; grid on;
+xlabel('x'); ylabel('y');
+
+% Display Results
+disp('--- Results ---');
+disp(['Input Theta 4 (Global): ', num2str(q4_global_deg)]);
+disp(['Case 1 (Open)    - Theta 2: ', num2str(q2_global_1), '  Theta 3: ', num2str(q3_global_1)]);
+disp(['Case 2 (Crossed) - Theta 2: ', num2str(q2_global_2), '  Theta 3: ', num2str(q3_global_2)]);
