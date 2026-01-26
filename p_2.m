@@ -79,26 +79,7 @@ col_L2 = 'c';               % Cyan
 col_L3 = 'r';               % Red
 col_L4 = [0.5, 0.5, 0.5];   % Grey
 
-
 % --- PLOT CASE 1 ---
-subplot(1, 2, 2); 
-hold on; axis equal; grid on;
-
-RBA_2 = b*exp(1j*q3_2g);
-RB_2 = RA + RBA_2;
-
-Bx_2=real(RB_2); By_2=imag(RB_2);
-
-quiver(O2x, O2y, O4x-O2x, O4y-O2y, 0, 'Color', col_ground, 'LineWidth', 2, 'MaxHeadSize', 0.5); % Ground
-quiver(O2x, O2y, Ax-O2x, Ay-O2y, 0, 'Color', col_L2, 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 2
-quiver(Ax, Ay, Bx_2-Ax, By_2-Ay, 0, 'Color', col_L3, 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 3
-quiver(O4x, O4y, Bx_2-O4x, By_2-O4y, 0, 'Color', col_L4, 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 4
-
-
-title(['Config 1']);
-xlabel('X'); ylabel('Y');
-
-
 subplot(1, 2, 1); 
 hold on; axis equal; grid on;
 
@@ -117,6 +98,23 @@ quiver(O2x, O2y, Ax-O2x, Ay-O2y, 0, 'Color', col_L2, 'LineWidth', 3, 'MaxHeadSiz
 quiver(Ax, Ay, Bx_1-Ax, By_1-Ay, 0, 'Color', col_L3, 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 3
 quiver(O4x, O4y, Bx_1-O4x, By_1-O4y, 0, 'Color', col_L4, 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 4
 
-title(['Case 2']);
+title(['Config 1']);
+xlabel('X'); ylabel('Y');
+
+% --- PLOT CASE 2 ---
+subplot(1, 2, 2); 
+hold on; axis equal; grid on;
+
+RBA_2 = b*exp(1j*q3_2g);
+RB_2 = RA + RBA_2;
+
+Bx_2=real(RB_2); By_2=imag(RB_2);
+
+quiver(O2x, O2y, O4x-O2x, O4y-O2y, 0, 'Color', col_ground, 'LineWidth', 2, 'MaxHeadSize', 0.5); % Ground
+quiver(O2x, O2y, Ax-O2x, Ay-O2y, 0, 'Color', col_L2, 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 2
+quiver(Ax, Ay, Bx_2-Ax, By_2-Ay, 0, 'Color', col_L3, 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 3
+quiver(O4x, O4y, Bx_2-O4x, By_2-O4y, 0, 'Color', col_L4, 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 4
+
+title(['Config 2']);
 xlabel('X'); ylabel('Y');
 
