@@ -2,132 +2,150 @@ clear all
 close all
 clc
 
-% --- 1. Parameter Definitions ---
+% 1. Parameter Definitions 
 L1 = 210; % Length of Link1 d (Ground) - Pink
-L2 = 118; % Length of Link2 a (Input/Crank) - Light Blue
+L2 = 118; % Length of Link2 a (Input) - Light Blue
 L3 = 210; % Length of Link3 b (Coupler) - Blue
-L4 = 118; % Length of Link4 c (Output/Rocker) - Brown
+L4 = 118; % Length of Link4 c (Output) - Brown
 
+% Mapping to standard variables
+d = L1;
 a = L2;
 b = L3;
 c = L4;
-d = L1;
 
-% Ground angle (Lifted up)
+% Ground angle (Lifted up by 0.81 degrees)
 theta1_deg = 0.81;
-theta1 = deg2rad(theta1_deg);
+theta1 = deg2rad(theta1_deg); 
 
 % Input: Theta 4 (Global)
 q4_global_deg = 102.5;
 q4_global = deg2rad(q4_global_deg);
 
-% Convert to Local Frame
+% Convert to Local Frame (Relative to Ground Link)
 q4 = q4_global - theta1;
 
-% --- 2. Calculate Constants (For Inverse Kinematics: Find q2 from q4) ---
-% Swapping 'a' and 'c' logic strictly for K calculation
-K1 = d/c; 
-K2 = d/a; 
-K3 = (c^2 - b^2 + a^2 + d^2)/(2*c*a); 
+% ---------------------------------------------------------
+% STEP 1: Find Theta 2 given Theta 4 (Inverse Kinematics)
+% ---------------------------------------------------------
 
-% Coefficients A, B, C
-A = cos(q4) - K1 - K2*cos(q4) + K3;
+% K Constants (Swapping a and c for Inverse Kinematics)
+K1_inv = d/c; 
+K2_inv = d/a; 
+K3_inv = (c^2 - b^2 + a^2 + d^2)/(2*c*a); 
+
+% Coefficients A, B, C for finding q2
+A = cos(q4) - K1_inv - K2_inv*cos(q4) + K3_inv;
 B = -2*sin(q4);
-C = K1 - (K2 + 1)*cos(q4) + K3;
+C = K1_inv - (K2_inv + 1)*cos(q4) + K3_inv;
 
-% --- 3. Calculate Angles (Theta 2) ---
-% Solution 1 and 2 for Theta 2
-q2_1 = 2*atan((-B - sqrt(B^2 - 4*A*C))/(2*A));
-q2_2 = 2*atan((-B + sqrt(B^2 - 4*A*C))/(2*A));
+% Solve for q2 (Two Solutions)
+disc = B^2 - 4*A*C;
 
-% --- 4. Calculate Theta 3 (Dependent on Theta 2) ---
-% Need Forward K constants to find q3
-K1_fwd = d/a;
-K4_fwd = d/b;
-K5_fwd = (c^2 - d^2 - a^2 - b^2)/(2*a*b);
+% q2 Case 1 (Parallel/Open)
+q2_local_1 = 2*atan((-B - sqrt(disc))/(2*A));
+% q2 Case 2 (Crossed/Anti-Parallel) 
+q2_local_2 = 2*atan((-B + sqrt(disc))/(2*A));
 
-% For Solution 1
-D1 = cos(q2_1) - K1_fwd + K4_fwd*cos(q2_1) + K5_fwd;
-E1 = -2*sin(q2_1);
-F1 = K1_fwd + (K4_fwd - 1)*cos(q2_1) + K5_fwd;
-q3_1 = 2*atan((-E1 - sqrt(E1^2 - 4*D1*F1))/(2*D1)); % Open logic
+% ---------------------------------------------------------
+% STEP 2: Find Theta 3 given Theta 2 (For BOTH Cases)
+% ---------------------------------------------------------
+K1 = d/a;
+K4 = d/b;
+K5 = (c^2 - d^2 - a^2 - b^2)/(2*a*b);
 
-% For Solution 2
-D2 = cos(q2_2) - K1_fwd + K4_fwd*cos(q2_2) + K5_fwd;
-E2 = -2*sin(q2_2);
-F2 = K1_fwd + (K4_fwd - 1)*cos(q2_2) + K5_fwd;
-q3_2 = 2*atan((-E2 + sqrt(E2^2 - 4*D2*F2))/(2*D2)); % Crossed logic
+% --- Calculate q3 for Case 1 ---
+D1 = cos(q2_local_1) - K1 + K4*cos(q2_local_1) + K5;
+E1 = -2*sin(q2_local_1);
+F1 = K1 + (K4 - 1)*cos(q2_local_1) + K5;
+% Note: Sign choice for q3 often depends on configuration. 
+% Usually Open uses -sqrt, Crossed uses +sqrt or vice versa depending on geometry.
+q3_local_1 = 2*atan((-E1 - sqrt(E1^2 - 4*D1*F1))/(2*D1)); 
 
-% --- 5. Vector Calculations (Complex Numbers) ---
-% Ground Vector (Lifted)
-RO4O2 = d*exp(j*theta1);
+% --- Calculate q3 for Case 2 ---
+D2 = cos(q2_local_2) - K1 + K4*cos(q2_local_2) + K5;
+E2 = -2*sin(q2_local_2);
+F2 = K1 + (K4 - 1)*cos(q2_local_2) + K5;
+q3_local_2 = 2*atan((-E2 + sqrt(E2^2 - 4*D2*F2))/(2*D2)); 
 
-% Link 4 Vector (Fixed Input for both cases)
-RBO4 = c*exp(j*(q4 + theta1)); 
 
-% Solution 1 Vectors (Open)
-RA1 = a*exp(j*(q2_1 + theta1));
-RBA1 = b*exp(j*(q3_1 + theta1));
-RB1 = RA1 + RBA1; % Calculate B from A side for closure check
+% Calculate Global Angles for display
+q2_global_1 = rad2deg(q2_local_1 + theta1);
+q3_global_1 = rad2deg(q3_local_1 + theta1);
 
-% Solution 2 Vectors (Crossed)
-RA2 = a*exp(j*(q2_2 + theta1));
-RBA2 = b*exp(j*(q3_2 + theta1));
-RB2 = RA2 + RBA2; 
+q2_global_2 = rad2deg(q2_local_2 + theta1);
+q3_global_2 = rad2deg(q3_local_2 + theta1);
 
-% --- 6. Extract Real and Imaginary Components ---
-% Ground
-RO4O2x = real(RO4O2);
-RO4O2y = imag(RO4O2);
 
-% Link 4
-RBO4x = real(RBO4);
-RBO4y = imag(RBO4);
+% ---------------------------------------------------------
+% VECTOR CALCULATION (Pre-calculate for Plotting)
+% ---------------------------------------------------------
+% Define Colors
+color_Pink = [1, 0.07, 0.57];  
+color_LBlue = [0.2, 0.8, 1];   
+color_Blue = [0, 0, 1];        
+color_Brown = [0.6, 0.4, 0.2]; 
 
-% Solution 1 Components
-RA1x = real(RA1);
-RA1y = imag(RA1);
-RBA1x = real(RBA1);
-RBA1y = imag(RBA1);
-RB1x = real(RB1);
-RB1y = imag(RB1);
+% Ground Vector (Same for both)
+RO4O2 = d*exp(j*theta1); 
+RO4O2x = real(RO4O2); RO4O2y = imag(RO4O2);
 
-% Solution 2 Components
-RA2x = real(RA2);
-RA2y = imag(RA2);
-RBA2x = real(RBA2);
-RBA2y = imag(RBA2);
-RB2x = real(RB2);
-RB2y = imag(RB2);
+% --- Vectors for Case 1 ---
+RA1 = a*exp(j*(q2_local_1 + theta1));
+RBA1 = b*exp(j*(q3_local_1 + theta1));
+RBO4_1 = c*exp(j*(q4 + theta1)); % Fixed Input
 
-% --- 7. Plotting using Quiver (Strict Format) ---
+RA1x = real(RA1); RA1y = imag(RA1);
+RBA1x = real(RBA1); RBA1y = imag(RBA1);
+% End points
+Ax1 = RA1x; Ay1 = RA1y;
+Bx1 = RA1x + RBA1x; By1 = RA1y + RBA1y;
+O4x = RO4O2x; O4y = RO4O2y;
+
+
+% --- Vectors for Case 2 ---
+RA2 = a*exp(j*(q2_local_2 + theta1));
+RBA2 = b*exp(j*(q3_local_2 + theta1));
+RBO4_2 = c*exp(j*(q4 + theta1)); % Fixed Input
+
+RA2x = real(RA2); RA2y = imag(RA2);
+RBA2x = real(RBA2); RBA2y = imag(RBA2);
+% End points
+Ax2 = RA2x; Ay2 = RA2y;
+Bx2 = RA2x + RBA2x; By2 = RA2y + RBA2y;
+
+
+% ---------------------------------------------------------
+% PLOTTING
+% ---------------------------------------------------------
 figure(1);
 hold on;
 
-% Plot Ground (Pink) - L1
-quiver(0, 0, RO4O2x, RO4O2y, 0, 'Color', [1, 0.07, 0.57], 'LineWidth', 4, 'MaxHeadSize', 0.5);
-
 % --- Plot Case 1: Open Circuit (Solid Lines) ---
-% Link 2 (Light Blue)
-quiver(0, 0, RA1x, RA1y, 0, 'Color', [0.2, 0.8, 1], 'LineWidth', 2, 'MaxHeadSize', 0.5);
-% Link 3 (Blue) - From A to B
-quiver(RA1x, RA1y, RBA1x, RBA1y, 0, 'Color', 'b', 'LineWidth', 2, 'MaxHeadSize', 0.5);
-% Link 4 (Brown) - From O4 to B
-quiver(RO4O2x, RO4O2y, RBO4x, RBO4y, 0, 'Color', [0.6, 0.4, 0.2], 'LineWidth', 2, 'MaxHeadSize', 0.5);
+% 1. Ground (Pink)
+quiver(0, 0, O4x, O4y, 0, 'Color', color_Pink, 'LineWidth', 4, 'MaxHeadSize', 0.5);
+% 2. Link 2 (Light Blue)
+quiver(0, 0, Ax1, Ay1, 0, 'Color', color_LBlue, 'LineWidth', 3, 'MaxHeadSize', 0.5);
+% 3. Link 3 (Blue) - From A to B
+quiver(Ax1, Ay1, Bx1-Ax1, By1-Ay1, 0, 'Color', color_Blue, 'LineWidth', 3, 'MaxHeadSize', 0.5);
+% 4. Link 4 (Brown) - From O4 to B
+quiver(O4x, O4y, Bx1-O4x, By1-O4y, 0, 'Color', color_Brown, 'LineWidth', 3, 'MaxHeadSize', 0.5);
 
-% --- Plot Case 2: Crossed Circuit (Dashed Lines for distinction) ---
-% Link 2 (Light Blue)
-quiver(0, 0, RA2x, RA2y, 0, 'Color', [0.2, 0.8, 1], 'LineWidth', 2, 'LineStyle', '--', 'MaxHeadSize', 0.5);
-% Link 3 (Blue)
-quiver(RA2x, RA2y, RBA2x, RBA2y, 0, 'Color', 'b', 'LineWidth', 2, 'LineStyle', '--', 'MaxHeadSize', 0.5);
-% Link 4 (Brown) - Same position but logically part of loop 2
-quiver(RO4O2x, RO4O2y, RBO4x, RBO4y, 0, 'Color', [0.6, 0.4, 0.2], 'LineWidth', 2, 'LineStyle', '--', 'MaxHeadSize', 0.5);
 
-axis equal;
-grid on;
-title(['Fourbar Mechanism: \theta_4 = ', num2str(q4_global_deg)]);
+% --- Plot Case 2: Crossed Circuit (Dashed Lines) ---
+% 2. Link 2 (Light Blue)
+quiver(0, 0, Ax2, Ay2, 0, 'Color', color_LBlue, 'LineWidth', 2, 'LineStyle', '--', 'MaxHeadSize', 0.5);
+% 3. Link 3 (Blue) - From A to B
+quiver(Ax2, Ay2, Bx2-Ax2, By2-Ay2, 0, 'Color', color_Blue, 'LineWidth', 2, 'LineStyle', '--', 'MaxHeadSize', 0.5);
+% 4. Link 4 (Brown) - From O4 to B
+quiver(O4x, O4y, Bx2-O4x, By2-O4y, 0, 'Color', color_Brown, 'LineWidth', 2, 'LineStyle', '--', 'MaxHeadSize', 0.5);
+
+
+axis equal; grid on;
+title(['Fourbar: Case 1 (Solid) & Case 2 (Dash), \theta_4 = ' num2str(q4_global_deg)]);
 xlabel('x'); ylabel('y');
 
-% Display Values
-fprintf('Case 1 (Solid): Theta2 = %.2f, Theta3 = %.2f\n', rad2deg(q2_1+theta1), rad2deg(q3_1+theta1));
-fprintf('Case 2 (Dashed): Theta2 = %.2f, Theta3 = %.2f\n', rad2deg(q2_2+theta1), rad2deg(q3_2+theta1));
+% Display Results
+fprintf('--- Results ---\n');
+fprintf('Case 1 (Solid): Theta 2 = %.4f deg, Theta 3 = %.4f deg\n', q2_global_1, q3_global_1);
+fprintf('Case 2 (Dash) : Theta 2 = %.4f deg, Theta 3 = %.4f deg\n', q2_global_2, q3_global_2);
