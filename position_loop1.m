@@ -6,16 +6,17 @@ clc
 % 1. PARAMETERS & INPUT
 % ==========================================
 L1 = 0.210; % Ground (Pink) - d
-L2 = 0.118; % Crank (Cyan/Red) - a
-L3 = 0.210; % Coupler (Blue) - b
-L4 = 0.118; % Rocker (Brown/Black) - c
+L2 = 0.118; % Crank (Cyan)  - a
+L3 = 0.210; % Coupler (Blue)- b
+L4 = 0.118; % Rocker (Brown)- c
 
+% Assign canonical names
+d = L1;
 a = L2;
 b = L3;
 c = L4;
-d = L1;
 
-% Ground Offset (Global rotation)
+% Ground Offset
 theta1_deg = 0.81;
 theta1 = deg2rad(theta1_deg);
 
@@ -24,97 +25,103 @@ q4_global_deg = -102.5;
 q4 = deg2rad(q4_global_deg) - theta1; % Local Angle
 
 % ==========================================
-% 2. CALCULATION (Find q2 given q4)
+% 2. CALCULATION (Find q2, q3 from q4)
 % ==========================================
 
-% Norton Constants (Standard Definitions)
+% Norton's K Constants
 K1 = d/a;
 K2 = d/c;
 K3 = (a^2 - b^2 + c^2 + d^2)/(2*a*c);
 
-% Coefficients for Quadratic Equation A*t^2 + B*t + C = 0
-% Derived for finding q2 when q4 is known (Inverse Kinematics)
-% Note: Formula adjusted to solve for q2
-A = (1 + K1)*cos(q4) + K2 + K3;
-B = -2*sin(q4);
-C = (K1 - 1)*cos(q4) - K2 + K3;
+% Coefficients A, B, C for finding q2 (Derived from Input q4)
+% Logic เดิมของคุณที่ถูกต้อง แต่นำมาใส่ตัวแปร A, B, C
+A = -((1 + K1)*cos(q4) + K2 + K3);
+B = 2*sin(q4);
+C = (1 - K1)*cos(q4) + K2 - K3;
 
-% Solve for q2 (2 Solutions: Crossed and Open)
-% q2_1 and q2_2
-q2_1 = 2*atan((-B + sqrt(B^2-4*A*C))/(2*A));
-q2_2 = 2*atan((-B - sqrt(B^2-4*A*C))/(2*A));
+% Check determinant
+det_val = B^2 - 4*A*C;
+if det_val < 0
+    error('No solution');
+end
 
-% Calculate q3 using Vector Loop Relationship
-% b*e^(j*q3) = c*e^(j*q4) + d - a*e^(j*q2)
-% We use angle() to find q3 directly consistent with the loop
+% Solve for q2 (2 Cases: Open & Crossed) using 2*atan
+q2_sol1 = 2*atan((-B + sqrt(det_val))/(2*A)); 
+q2_sol2 = 2*atan((-B - sqrt(det_val))/(2*A));
 
-% For Case 1 (q2_1)
-Vec3_1 = c*exp(1j*q4) + d - a*exp(1j*q2_1);
-q3_1 = angle(Vec3_1);
+% Calculate q3 using Vector Sum Logic (To ensure loop closure)
+% Case 1 (Matches q2_sol1)
+Vec3_1 = c*exp(1j*q4) + d - a*exp(1j*q2_sol1);
+q3_sol1 = angle(Vec3_1);
 
-% For Case 2 (q2_2)
-Vec3_2 = c*exp(1j*q4) + d - a*exp(1j*q2_2);
-q3_2 = angle(Vec3_2);
+% Case 2 (Matches q2_sol2)
+Vec3_2 = c*exp(1j*q4) + d - a*exp(1j*q2_sol2);
+q3_sol2 = angle(Vec3_2);
 
 % ==========================================
-% 3. CONVERT TO GLOBAL
+% 3. CONVERT TO GLOBAL & DISPLAY
 % ==========================================
-q2_1g = q2_1 + theta1;
-q3_1g = q3_1 + theta1;
 
-q2_2g = q2_2 + theta1;
-q3_2g = q3_2 + theta1;
+% Convert back to Global angles
+q2_1_deg = rad2deg(q2_sol1 + theta1);
+q3_1_deg = rad2deg(q3_sol1 + theta1);
 
+q2_2_deg = rad2deg(q2_sol2 + theta1);
+q3_2_deg = rad2deg(q3_sol2 + theta1);
+
+fprintf('--- Results ---\n');
+fprintf('Configuration 1:\n Theta2: %.4f deg, Theta3: %.4f deg\n', q2_1_deg, q3_1_deg);
+fprintf('Configuration 2:\n Theta2: %.4f deg, Theta3: %.4f deg\n', q2_2_deg, q3_2_deg);
+
+% ==========================================
+% 4. PLOTTING
+% ==========================================
+% Select Configuration to plot (e.g., Sol 2)
+q2_plot = q2_sol2; 
+q3_plot = q3_sol2;
+
+% Global Angles for Plotting
+q2g = q2_plot + theta1;
+q3g = q3_plot + theta1;
 q4g = q4 + theta1;
 
-% Display Results
-fprintf('--- Results ---\n');
-fprintf('Case 1 (q2_1): %.2f deg, q3: %.2f deg\n', rad2deg(q2_1g), rad2deg(q3_1g));
-fprintf('Case 2 (q2_2): %.2f deg, q3: %.2f deg\n', rad2deg(q2_2g), rad2deg(q3_2g));
+% Calculate Vectors in Global Frame
+RO2 = 0; % Origin at O2
+RO4 = d*exp(1j*theta1); % Ground Vector
 
-% ==========================================
-% 4. PLOTTING (MATCHING YOUR FORMAT)
-% ==========================================
-% Select Solution to Plot (e.g., Case 2 - Open)
-q2_plot = q2_2g;
-q3_plot = q3_2g;
-q4_plot = q4g;
+RA  = a*exp(1j*q2g);      % Link 2 Vector
+RBA = b*exp(1j*q3g);      % Link 3 Vector
+RBO4 = c*exp(1j*q4g);     % Link 4 Vector (from O4)
 
-% Vectors in Global Frame
-RA = a*exp(1j*q2_plot);          % Link 2 (Red)
-RBA2 = b*exp(1j*q3_plot);        % Link 3 (Blue)
-RB2 = RA + RBA2;                 % Position B from Origin (Green)
+% Points
+Pos_O2 = RO2;
+Pos_O4 = RO4;
+Pos_A  = RO2 + RA;
+Pos_B  = Pos_A + RBA; % or RO4 + RBO4
 
-RO4O2 = d*exp(1j*theta1);        % Ground Vector (Black)
-RBO42 = c*exp(1j*q4_plot);       % Link 4 Vector (Black - from O4)
+% Components for Quiver
+O2x = real(Pos_O2); O2y = imag(Pos_O2);
+O4x = real(Pos_O4); O4y = imag(Pos_O4);
+Ax  = real(Pos_A);  Ay  = imag(Pos_A);
+Bx  = real(Pos_B);  By  = imag(Pos_B);
 
-% Extract Components
-RAx = real(RA); RAy = imag(RA);
-RBA2x = real(RBA2); RBA2y = imag(RBA2);
-RB2x = real(RB2); RB2y = imag(RB2);
-RO4O2x = real(RO4O2); RO4O2y = imag(RO4O2);
-RBO42x = real(RBO42); RBO42y = imag(RBO42);
-
-% Plotting
+% Create Plot
 figure;
-hold on; 
+hold on; axis equal; grid on;
 
-% 1. Link 2 (Red) - O2 to A
-quiver(0, 0, RAx, RAy, 0, 'red', 'MaxHeadSize', 0.5, 'LineWidth', 2); 
+% 1. Ground (Pink/Black) - O2 -> O4
+quiver(O2x, O2y, O4x-O2x, O4y-O2y, 0, 'k', 'LineWidth', 2, 'MaxHeadSize', 0.5);
 
-% 2. Link 3 (Blue) - A to B
-quiver(RAx, RAy, RBA2x, RBA2y, 0, 'blue', 'MaxHeadSize', 0.5, 'LineWidth', 2);
+% 2. Link 2 Crank (Cyan) - O2 -> A
+quiver(O2x, O2y, Ax-O2x, Ay-O2y, 0, 'c', 'LineWidth', 3, 'MaxHeadSize', 0.5);
 
-% 3. Position Vector B (Green) - Origin to B
-quiver(0, 0, RB2x, RB2y, 0, 'green', 'MaxHeadSize', 0.5, 'LineWidth', 2);
+% 3. Link 3 Coupler (Blue) - A -> B
+quiver(Ax, Ay, Bx-Ax, By-Ay, 0, 'b', 'LineWidth', 3, 'MaxHeadSize', 0.5);
 
-% 4. Ground (Black) - O2 to O4
-quiver(0, 0, RO4O2x, RO4O2y, 0, 'black', 'MaxHeadSize', 0.5, 'LineWidth', 2); 
+% 4. Link 4 Rocker (Brown) - O4 -> B
+% Brown color RGB: [0.6, 0.3, 0]
+quiver(O4x, O4y, Bx-O4x, By-O4y, 0, 'Color', [0.6, 0.3, 0], 'LineWidth', 3, 'MaxHeadSize', 0.5);
 
-% 5. Link 4 (Black) - O4 to B
-quiver(RO4O2x, RO4O2y, RBO42x, RBO42y, 0, 'black', 'MaxHeadSize', 0.5, 'LineWidth', 2); 
-
-axis equal;
-grid on;
-title('4-Bar Linkage Position (Using format from snippet)');
-xlabel('X'); ylabel('Y');
+title('4-Bar Linkage Position Analysis');
+xlabel('X Position (m)'); ylabel('Y Position (m)');
+legend('Ground', 'Link 2 (Crank)', 'Link 3 (Coupler)', 'Link 4 (Rocker)');
