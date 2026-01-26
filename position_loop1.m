@@ -10,11 +10,10 @@ L2 = 0.118; % Crank (Cyan)  - a
 L3 = 0.210; % Coupler (Blue)- b
 L4 = 0.118; % Rocker (Brown)- c
 
-% Assign canonical names for formulas
-d = L1;
 a = L2;
 b = L3;
 c = L4;
+d = L1;
 
 % Ground Offset (Global rotation)
 theta1_deg = 0.81;
@@ -22,45 +21,39 @@ theta1 = deg2rad(theta1_deg);
 
 % --- INPUT: Link 4 (Brown) ---
 q4_global_deg = -102.5; 
-% Convert to Local frame (relative to Link 1)
-q4 = deg2rad(q4_global_deg) - theta1; 
+q4 = deg2rad(q4_global_deg) - theta1; % Convert to Local Angle
 
 % ==========================================
-% 2. CALCULATION (Inverted Kinematics: Given q4, find q2, q3)
+% 2. CALCULATION (Given q4, Find q2 and q3)
 % ==========================================
 
 % Calculate K constants (Norton's Definitions)
 K1 = d/a;
 K2 = d/c;
 K3 = (a^2 - b^2 + c^2 + d^2)/(2*a*c);
+K4 = d/b;
+% K5_inv: Specific constant for finding q3 from q4 input
+K5_inv = (a^2 - d^2 - c^2 - b^2)/(2*c*b);
 
-% Coefficients for Quadratic Equation A*t^2 + B*t + C = 0
-% Derived from Vector Loop for Input q4
-A_quad = -((1 + K1)*cos(q4) + K2 + K3);
-B_quad = 2*sin(q4);
-C_quad = (1 - K1)*cos(q4) + K2 - K3;
+% --- Find Theta 2 (Crank) ---
+% Coefficients A, B, C derived for Inverted Kinematics (Input q4)
+A = cos(q4) - K2 - K1*cos(q4) + K3;
+B = -2*sin(q4);
+C = K2 - (K1+1)*cos(q4) + K3;
 
-% Solve for t = tan(theta2 / 2)
-det_val = B_quad^2 - 4*A_quad*C_quad;
+% Solve for q2 (2 Solutions: Open and Crossed)
+q2_1 = 2*atan((-B + sqrt(B^2-4*A*C))/(2*A));
+q2_2 = 2*atan((-B - sqrt(B^2-4*A*C))/(2*A));
 
-if det_val < 0
-    error('No real solution exists for the given input angle.');
-end
+% --- Find Theta 3 (Coupler) ---
+% Coefficients D, E, F derived for q3 from q4
+D = cos(q4) - K2 + K4*cos(q4) + K5_inv;
+E = -2*sin(q4);
+F = K2 + (K4-1)*cos(q4) + K5_inv;
 
-t_1 = (-B_quad + sqrt(det_val)) / (2*A_quad);
-t_2 = (-B_quad - sqrt(det_val)) / (2*A_quad);
-
-% Calculate theta2 (Local frame)
-q2_1 = 2*atan(t_1);
-q2_2 = 2*atan(t_2);
-
-% Calculate theta3 (Local frame) using Vector Sum
-% Vector equation: b*e^(j*q3) = c*e^(j*q4) + d - a*e^(j*q2)
-Vec3_1 = c*exp(1j*q4) + d - a*exp(1j*q2_1);
-Vec3_2 = c*exp(1j*q4) + d - a*exp(1j*q2_2);
-
-q3_1 = angle(Vec3_1);
-q3_2 = angle(Vec3_2);
+% Solve for q3 (2 Solutions)
+q3_1 = 2*atan((-E + sqrt(E^2-4*D*F))/(2*D));
+q3_2 = 2*atan((-E - sqrt(E^2-4*D*F))/(2*D));
 
 % ==========================================
 % 3. CONVERT TO GLOBAL & DISPLAY
@@ -85,32 +78,38 @@ fprintf('Theta3: %.4f deg\n', rad2deg(q3_2_global));
 % 4. PLOTTING
 % ==========================================
 % Select Configuration to plot (e.g., Config 2 - Open)
-% You can change this to use q2_1/q3_1 for Crossed
 q2_plot = q2_2; 
 q3_plot = q3_2;
-% Note: Using Local angles for vector calculation relative to ground at 0, 
-% then rotating the whole plot by theta1 is equivalent to using global angles.
-% Below we use Global Angles for direct plotting.
 
-% Vectors in Global Frame
+% Calculate Vectors in Global Frame for Plotting
+% Ground (Link 1)
+RO2 = 0;
+RO4 = d * exp(1j * theta1);
+
+% Link 2 (Crank) - Cyan
 RA = a * exp(1j * (q2_plot + theta1));
-RB = c * exp(1j * (q4 + theta1)); % Re-derived from q4 local
-% Or directly from input:
-% RB = c * exp(1j * deg2rad(q4_global_deg)); 
-% (Should be offset by d? No, RB is from O4. Position of B from origin is different)
 
-% Let's use the standard loop: Origin -> O2 -> A -> B -> O4 -> Origin
-% Position O2 = 0 (or some offset if needed, usually 0)
-O2 = 0;
-O4 = d * exp(1j * theta1); % Ground Vector
+% Link 3 (Coupler) - Blue
+RBA = b * exp(1j * (q3_plot + theta1));
 
-% Points for Config 2
-PA = O2 + a * exp(1j * (q2_2 + theta1)); % Point A
-PB = O4 + c * exp(1j * (q4 + theta1));   % Point B from O4
-% Check closure:
-PB_check = PA + b * exp(1j * (q3_2 + theta1));
-% Error check
-err = abs(PB - PB_check);
+% Link 4 (Rocker) - Brown (From Input q4)
+RB_from_O4 = c * exp(1j * (q4 + theta1));
+
+% Calculate Points
+Pos_O2 = RO2;
+Pos_O4 = RO4;
+Pos_A = RO2 + RA;
+Pos_B = RO4 + RB_from_O4; % Calculate B from O4 side to verify
+
+% Check closure error (Optional verification)
+Pos_B_check = Pos_A + RBA; 
+% difference = abs(Pos_B - Pos_B_check) % Should be near 0
+
+% Extract Components for Quiver
+O2x = real(Pos_O2); O2y = imag(Pos_O2);
+O4x = real(Pos_O4); O4y = imag(Pos_O4);
+Ax = real(Pos_A);   Ay = imag(Pos_A);
+Bx = real(Pos_B);   By = imag(Pos_B);
 
 % Plotting
 figure;
@@ -118,24 +117,28 @@ hold on;
 axis equal;
 grid on;
 
-% Plot Ground (O2 to O4)
-plot([real(O2), real(O4)], [imag(O2), imag(O4)], 'k--o', 'LineWidth', 2, 'DisplayName', 'Ground');
+% 1. Ground Link (Pink/Black) - O2 to O4
+% Note: Using Black for visibility as per standard, or Pink as requested
+quiver(O2x, O2y, O4x-O2x, O4y-O2y, 0, 'Color', 'k', 'LineWidth', 2, 'MaxHeadSize', 0.5); 
+% If need strictly Pink: 'Color', [1, 0.4, 0.7]
 
-% Plot Link 2 (Crank - Cyan)
-plot([real(O2), real(PA)], [imag(O2), imag(PA)], 'c-o', 'LineWidth', 3, 'DisplayName', 'Link 2 (Crank)');
+% 2. Link 2 (Crank) - Cyan - O2 to A
+quiver(O2x, O2y, Ax-O2x, Ay-O2y, 0, 'Color', 'c', 'LineWidth', 3, 'MaxHeadSize', 0.5);
 
-% Plot Link 3 (Coupler - Blue)
-plot([real(PA), real(PB)], [imag(PA), imag(PB)], 'b-o', 'LineWidth', 3, 'DisplayName', 'Link 3 (Coupler)');
+% 3. Link 3 (Coupler) - Blue - A to B
+quiver(Ax, Ay, Bx-Ax, By-Ay, 0, 'Color', 'b', 'LineWidth', 3, 'MaxHeadSize', 0.5);
 
-% Plot Link 4 (Rocker - Brown)
-plot([real(O4), real(PB)], [imag(O4), imag(PB)], 'color', [0.6, 0.3, 0], 'LineWidth', 3, 'DisplayName', 'Link 4 (Rocker)');
+% 4. Link 4 (Rocker) - Brown - O4 to B
+brown_color = [0.6, 0.3, 0];
+quiver(O4x, O4y, Bx-O4x, By-O4y, 0, 'Color', brown_color, 'LineWidth', 3, 'MaxHeadSize', 0.5);
 
-% Quiver style as requested in prompt
-quiver(real(O2), imag(O2), real(PA), imag(PA), 0, 'c', 'LineWidth', 2);
-quiver(real(PA), imag(PA), real(PB)-real(PA), imag(PB)-imag(PA), 0, 'b', 'LineWidth', 2);
-quiver(real(O4), imag(O4), real(PB)-real(O4), imag(PB)-imag(O4), 0, 'color', [0.6, 0.3, 0], 'LineWidth', 2);
+% Add Labels
+text(O2x, O2y, ' O_2');
+text(O4x, O4y, ' O_4');
+text(Ax, Ay, ' A');
+text(Bx, By, ' B');
 
 xlabel('X Position (m)');
 ylabel('Y Position (m)');
 title('4-Bar Linkage Position Analysis (Input \theta_4)');
-legend('show');
+legend('Ground', 'Link 2 (Crank)', 'Link 3 (Coupler)', 'Link 4 (Rocker)');
