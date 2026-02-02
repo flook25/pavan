@@ -5,121 +5,125 @@ clc
 % ==========================================
 % 1. PARAMETERS & INPUT
 % ==========================================
-L1 = 0.210; % Ground (Pink) - d
-L2 = 0.118; % Crank (Cyan) - a
-L3 = 0.210; % Coupler (Blue) - b
-L4 = 0.118; % Rocker (Brown) - c
+L1 = 0.210; % Ground (Pink)
+L2 = 0.118; % Crank (Cyan) - Output
+L3 = 0.210; % Coupler (Blue)
+L4 = 0.118; % Rocker (Brown) - Input
 
-% Assign Canonical Names
 d = L1;
 a = L2;
 b = L3;
 c = L4;
 
-% Input Parameters
 theta4_deg = 102.05; 
 offset_deg = 0.81;
-
-% Convert to radians & Local Frame
 offset = deg2rad(offset_deg);
-q4_local = deg2rad(theta4_deg) - offset;
 
 % ==========================================
-% 2. CALCULATION (APPLYING YOUR EQUATION)
+% 2. CALCULATION (Inverted Local Frame)
 % ==========================================
+% เราจะคำนวณใน "Local Frame" ที่จุด O4 เป็น Origin และแกน X ชี้ไปทาง O2
+% Input Angle 102.05 จะถูกใช้ตรงๆ ใน Frame นี้
 
-% --- กำหนดตัวแปรสำหรับ Inverted Loop ---
-% เราหา Theta 2 (a) โดยรู้ Theta 4 (c)
-% ดังนั้นในสูตร: a_calc คือ L4, c_calc คือ L2
-a_calc = c; 
-b_calc = b; 
-c_calc = a; 
-d_calc = d;
+q_in = deg2rad(theta4_deg); % Local Input (relative to O4->O2)
 
-% คำนวณ K1-K5 (ใช้ความยาวที่สลับแล้ว)
-K1 = d_calc/a_calc;
-K2 = d_calc/c_calc;
-K3 = (a_calc^2 - b_calc^2 + c_calc^2 + d_calc^2)/(2*a_calc*c_calc);
-K4 = d_calc/b_calc;
-K5 = (c_calc^2 - d_calc^2 - a_calc^2 - b_calc^2)/(2*a_calc*b_calc);
+% Constants for Inverted Calculation (Link 4 is Crank, Link 2 is Rocker)
+% a_calc = c (L4), c_calc = a (L2)
+K1 = d/c;
+K2 = d/a;
+K3 = (c^2 - b^2 + a^2 + d^2)/(2*c*a);
+K4 = d/b;
+K5 = (a^2 - d^2 - c^2 - b^2)/(2*c*b);
 
-% --- INPUT (เลียนแบบสมการ Loop 3: q_in = q_prev + pi) ---
-q_in = q4_local + pi; 
+% Coefficients
+A = cos(q_in) - K1 - K2*cos(q_in) + K3;
+B = -2*sin(q_in);
+C = K1 - (K2+1)*cos(q_in) + K3;
 
-% --- CASE 1: OPEN (ใช้สูตร -sqrt ตามมาตรฐาน Open ของ Loop 1) ---
-A1 = cos(q_in) - K1 - K2*cos(q_in) + K3;
-B1 = -2*sin(q_in);
-C1 = K1 - (K2+1)*cos(q_in) + K3;
+D_val = cos(q_in) - K1 + K4*cos(q_in) + K5;
+E_val = -2*sin(q_in);
+F_val = K1 + (K4-1)*cos(q_in) + K5;
 
-D1 = cos(q_in) - K1 + K4*cos(q_in) + K5;
-E1 = -2*sin(q_in);
-F1 = K1 + (K4-1)*cos(q_in) + K5;
+% Solve Quadratic Roots
+det_AC = sqrt(B^2 - 4*A*C);
+det_DF = sqrt(E_val^2 - 4*D_val*F_val);
 
-% Solve (ผลลัพธ์ที่ได้คือมุมในเฟรมที่หมุนไป 180)
-q2_calc_1 = 2*atan2((-B1 - sqrt(B1^2 - 4*A1*C1)), (2*A1));
-q3_calc_1 = 2*atan2((-E1 - sqrt(E1^2 - 4*D1*F1)), (2*D1));
+% --- Calculate Local Angles ---
+% Case 1: Open (-sqrt)
+q2_loc_1 = 2*atan2((-B - det_AC), (2*A));
+q3_loc_1 = 2*atan2((-E_val - det_DF), (2*D_val));
 
-% --- CASE 2: CROSSED (ใช้สูตร +sqrt) ---
-% ค่า A, B, C, D, E, F เหมือนเดิม ใช้ซ้ำได้เลย
-q2_calc_2 = 2*atan2((-B1 + sqrt(B1^2 - 4*A1*C1)), (2*A1));
-q3_calc_2 = 2*atan2((-E1 + sqrt(E1^2 - 4*D1*F1)), (2*D1));
-
-% --- TRANSFORM BACK (หมุนกลับ 180 องศา) ---
-% เพื่อให้ได้ค่า Theta จริงใน Global Frame
-Theta2_Open_Local  = q2_calc_1 + pi;
-Theta3_Open_Local  = q3_calc_1 + pi;
-
-Theta2_Cross_Local = q2_calc_2 + pi;
-Theta3_Cross_Local = q3_calc_2 + pi;
-
-% Add Offset
-T2_Open = Theta2_Open_Local + offset;
-T3_Open = Theta3_Open_Local + offset;
-
-T2_Cross = Theta2_Cross_Local + offset;
-T3_Cross = Theta3_Cross_Local + offset;
-
-Theta4_Global = q4_local + offset;
+% Case 2: Crossed (+sqrt)
+q2_loc_2 = 2*atan2((-B + det_AC), (2*A));
+q3_loc_2 = 2*atan2((-E_val + det_DF), (2*D_val));
 
 % ==========================================
-% 3. PLOTTING
+% 3. TRANSFORM TO GLOBAL (Rotate +180)
 % ==========================================
-Rot = exp(1j * offset);
+% หมุนทุกอย่างกลับ 180 องศา (+pi) เพื่อกลับสู่ Global Frame (O2 Origin)
+% และบวก Offset ของพื้นเอียง
 
-% Ground
-R1 = d * exp(1j * offset);
+% Input (Brown)
+T4_Global = q_in + pi + offset;
 
-% --- Case 1 Vectors ---
-R2_Op = a * exp(1j * T2_Open);
-R4_Op = c * exp(1j * Theta4_Global);
-% Loop Closure: R2 + R3 = R1 + R4
-R3_Op = (R1 + R4_Op) - R2_Op; 
+% Case 1 (Open)
+T2_Open = q2_loc_1 + pi + offset;
+T3_Open = q3_loc_1 + pi + offset;
 
-% --- Case 2 Vectors ---
-R2_Cr = a * exp(1j * T2_Cross);
-R4_Cr = c * exp(1j * Theta4_Global);
-R3_Cr = (R1 + R4_Cr) - R2_Cr;
+% Case 2 (Crossed)
+T2_Cross = q2_loc_2 + pi + offset;
+T3_Cross = q3_loc_2 + pi + offset;
 
+% ==========================================
+% 4. VECTOR CONSTRUCTION & PLOTTING
+% ==========================================
+% Global Rotation
+Rot = exp(1i * offset);
+
+% Ground (Pink) - Fixed at O2-O4
+% Note: In Global, Ground is vector from O2(0,0) to O4
+R1 = d * exp(1i * offset); 
+
+% Function to plot
 figure(1); clf;
 
-% Subplot 1: Case 1
-subplot(1,2,1); hold on; grid on; axis equal;
-title('Case 1: Open');
-quiver(0,0, real(R1), imag(R1), 0, 'm', 'LineWidth', 2, 'MaxHeadSize',0.5);
-quiver(0,0, real(R2_Op), imag(R2_Op), 0, 'c', 'LineWidth', 2, 'MaxHeadSize',0.5);
-quiver(real(R1), imag(R1), real(R4_Op), imag(R4_Op), 0, 'Color',[0.6 0.3 0], 'LineWidth', 2, 'MaxHeadSize',0.5);
-quiver(real(R2_Op), imag(R2_Op), real(R3_Op), imag(R3_Op), 0, 'b', 'LineWidth', 2, 'MaxHeadSize',0.5);
+% --- SUBPLOT 1: Case 1 (Open) ---
+% สร้างเวกเตอร์
+R2_Op = a * exp(1i * T2_Open);       % Cyan (Link 2)
+R4_Op = c * exp(1i * T4_Global);     % Brown (Link 4) from O4
+% Link 3 เชื่อมปลาย
+vec_B_Op = R1 + R4_Op; % ปลาย Link 4 (จุด B)
+vec_A_Op = R2_Op;      % ปลาย Link 2 (จุด A)
+R3_Op = vec_B_Op - vec_A_Op;
 
-% Subplot 2: Case 2
+subplot(1,2,1); hold on; grid on; axis equal;
+title('Case 1: Open (Parallelogram)');
+% Plot
+plot([0 real(R1)], [0 imag(R1)], 'm-', 'LineWidth', 2); % Pink (Ground)
+quiver(0, 0, real(R2_Op), imag(R2_Op), 0, 'c', 'LineWidth', 2, 'MaxHeadSize',0.5); % Cyan
+quiver(real(R1), imag(R1), real(R4_Op), imag(R4_Op), 0, 'Color',[0.6 0.3 0], 'LineWidth', 2, 'MaxHeadSize',0.5); % Brown
+quiver(real(R2_Op), imag(R2_Op), real(R3_Op), imag(R3_Op), 0, 'b', 'LineWidth', 2, 'MaxHeadSize',0.5); % Blue
+
+% --- SUBPLOT 2: Case 2 (Crossed) ---
+% สร้างเวกเตอร์
+R2_Cr = a * exp(1i * T2_Cross);       % Cyan (Link 2)
+R4_Cr = c * exp(1i * T4_Global);      % Brown (Link 4)
+% Link 3 เชื่อมปลาย
+vec_B_Cr = R1 + R4_Cr;
+vec_A_Cr = R2_Cr;
+R3_Cr = vec_B_Cr - vec_A_Cr;
+
 subplot(1,2,2); hold on; grid on; axis equal;
 title('Case 2: Crossed');
-quiver(0,0, real(R1), imag(R1), 0, 'm', 'LineWidth', 2, 'MaxHeadSize',0.5);
-quiver(0,0, real(R2_Cr), imag(R2_Cr), 0, 'c', 'LineWidth', 2, 'MaxHeadSize',0.5);
-quiver(real(R1), imag(R1), real(R4_Cr), imag(R4_Cr), 0, 'Color',[0.6 0.3 0], 'LineWidth', 2, 'MaxHeadSize',0.5);
-quiver(real(R2_Cr), imag(R2_Cr), real(R3_Cr), imag(R3_Cr), 0, 'b', 'LineWidth', 2, 'MaxHeadSize',0.5);
+% Plot
+plot([0 real(R1)], [0 imag(R1)], 'm-', 'LineWidth', 2); % Pink (Ground)
+quiver(0, 0, real(R2_Cr), imag(R2_Cr), 0, 'c', 'LineWidth', 2, 'MaxHeadSize',0.5); % Cyan
+quiver(real(R1), imag(R1), real(R4_Cr), imag(R4_Cr), 0, 'Color',[0.6 0.3 0], 'LineWidth', 2, 'MaxHeadSize',0.5); % Brown
+quiver(real(R2_Cr), imag(R2_Cr), real(R3_Cr), imag(R3_Cr), 0, 'b', 'LineWidth', 2, 'MaxHeadSize',0.5); % Blue
 
-% Display
-disp('--- RESULTS ---');
-disp(['Theta 4 Input: ', num2str(theta4_deg)]);
-disp(['Theta 2 Open : ', num2str(rad2deg(T2_Open))]);
-disp(['Theta 2 Cross: ', num2str(rad2deg(T2_Cross))]);
+% Display Check
+disp('=======================================');
+disp('CHECK CONFIGURATION (Case 2: Crossed)');
+disp('=======================================');
+disp(['Cyan Angle (Should be > 0): ', num2str(rad2deg(T2_Cross))]);
+disp(['Brown Angle (Should be < 0 or > 180): ', num2str(rad2deg(T4_Global))]);
