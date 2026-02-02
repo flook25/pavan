@@ -3,148 +3,135 @@ close all
 clc
 
 % ==========================================
-% 1. PARAMETERS
+% 1. PARAMETERS & INPUT
 % ==========================================
-L1 = 0.210; % Ground (Pink) - d
-L2 = 0.118; % Crank (Cyan) - a
-L3 = 0.210; % Coupler (Blue) - b
-L4 = 0.118; % Rocker (Brown) - c (Input here)
+L1 = 0.210; % Ground (Pink)
+L2 = 0.118; % Crank (Cyan)
+L3 = 0.210; % Coupler (Blue)
+L4 = 0.118; % Rocker (Brown) - Input
 
-% กำหนดตัวแปรสำหรับคำนวณ
 d = L1;
-a = L2; 
+a = L2;
 b = L3;
 c = L4;
 
-% Input Parameters
 theta4_deg = 102.05; 
 offset_deg = 0.81;
 
-% Convert to radians
 offset = deg2rad(offset_deg);
-q4_local = deg2rad(theta4_deg) - offset;
+% Global Input Angle for Link 4 (Brown)
+q4_global = deg2rad(theta4_deg); 
+% Note: Link 4 vector starts at O4, so angle is relative to Ground at O4
 
 % ==========================================
-% 2. CALCULATION (Inverted with Frame Correction)
+% 2. CALCULATION (Geometric/Vector Method)
 % ==========================================
-% *** หัวใจสำคัญ: หมุน Input ไป -180 องศา เพื่อเข้าสู่ Inverted Frame (O4 มองไป O2) ***
-q_in_calc = q4_local - pi; 
+% วิธีนี้แม่นยำที่สุดสำหรับแก้ปัญหา "ทิศทางผิด"
+% Step 1: หาจุดปลายของ Link 4 (จุด B) และจุด O2, O4
+O2 = 0 + 0i;
+O4 = d * exp(1i * offset);
 
-% สลับตัวแปร: ให้ c (Link 4) เป็น Input, a (Link 2) เป็น Output ที่จะหา
-d_sim = d;
-a_sim = c; % Link 4 ทำหน้าที่เป็น Crank
-b_sim = b;
-c_sim = a; % Link 2 ทำหน้าที่เป็น Rocker
+% จุด B (ปลาย Link 4) อ้างอิงจาก O4
+R4_vec = c * exp(1i * (q4_global)); % มุม Global
+Point_B = O4 + R4_vec;
 
-% Freudenstein Constants (Inverted)
-K1 = d_sim/a_sim;
-K2 = d_sim/c_sim;
-K3 = (a_sim^2 - b_sim^2 + c_sim^2 + d_sim^2)/(2*a_sim*c_sim);
-K4 = d_sim/b_sim;
-K5 = (c_sim^2 - d_sim^2 - a_sim^2 - b_sim^2)/(2*a_sim*b_sim);
+% Step 2: หาจุด A (ปลาย Link 2)
+% จุด A ต้องอยู่ห่างจาก O2 เป็นระยะ 'a' (Link 2)
+% และต้องอยู่ห่างจาก B เป็นระยะ 'b' (Link 3)
+% นี่คือปัญหาหาจุดตัดวงกลม (Intersection of two circles)
 
-% Coefficients
-A = cos(q_in_calc) - K1 - K2*cos(q_in_calc) + K3;
-B = -2*sin(q_in_calc);
-C = K1 - (K2+1)*cos(q_in_calc) + K3;
+dist_O2_B = abs(Point_B - O2); % ระยะห่างจาก O2 ถึง B
+angle_O2_B = angle(Point_B - O2); % มุมของเส้นตรง O2-B
 
-D_val = cos(q_in_calc) - K1 + K4*cos(q_in_calc) + K5;
-E_val = -2*sin(q_in_calc);
-F_val = K1 + (K4-1)*cos(q_in_calc) + K5;
+% กฎของโคไซน์ (Law of Cosines) บนสามเหลี่ยม O2-A-B
+% a^2 + dist^2 - b^2 = 2 * a * dist * cos(alpha)
+cos_alpha = (a^2 + dist_O2_B^2 - b^2) / (2 * a * dist_O2_B);
 
-% Solve Quadratic
-det_AC = sqrt(B^2 - 4*A*C);
-det_DF = sqrt(E_val^2 - 4*D_val*F_val);
+% ตรวจสอบว่าเป็นไปได้หรือไม่ (Real Mechanism Check)
+if abs(cos_alpha) > 1
+    disp('Error: Mechanism cannot be assembled with these lengths/angles.');
+    return;
+end
 
-% --- หาคำตอบใน Inverted Frame ---
-% สูตรมาตรฐาน: (-B - sqrt) คือ Open, (-B + sqrt) คือ Crossed
-q2_inv_1 = 2*atan2((-B - det_AC), (2*A));
-q3_inv_1 = 2*atan2((-E_val - det_DF), (2*D_val));
+alpha = acos(cos_alpha);
 
-q2_inv_2 = 2*atan2((-B + det_AC), (2*A));
-q3_inv_2 = 2*atan2((-E_val + det_DF), (2*D_val));
+% คำตอบมี 2 กรณี (Open และ Crossed)
+% Case 1: Theta 2 (Open) -> ลบมุม alpha (ตาม convention ของลูปนี้)
+theta2_sol1 = angle_O2_B - alpha; 
 
-% ==========================================
-% 3. TRANSFORM BACK TO GLOBAL (หมุนกลับ)
-% ==========================================
-% *** หัวใจสำคัญ: บวก 180 องศา กลับคืน เพื่อให้ทิศทางถูกต้องในโลกจริง ***
-Theta2_Open_Local  = q2_inv_1 + pi;
-Theta3_Open_Local  = q3_inv_1 + pi;
+% Case 2: Theta 2 (Crossed) -> บวกมุม alpha
+theta2_sol2 = angle_O2_B + alpha;
 
-Theta2_Cross_Local = q2_inv_2 + pi;
-Theta3_Cross_Local = q3_inv_2 + pi;
+% คำนวณ Theta 3 ตาม Vector Loop
+% R3 = B - A
+Point_A1 = a * exp(1i * theta2_sol1);
+R3_vec1 = Point_B - Point_A1;
+theta3_sol1 = angle(R3_vec1);
 
-% บวก Offset ของพื้นเอียง
-T2_Open = Theta2_Open_Local + offset;
-T3_Open = Theta3_Open_Local + offset;
+Point_A2 = a * exp(1i * theta2_sol2);
+R3_vec2 = Point_B - Point_A2;
+theta3_sol2 = angle(R3_vec2);
 
-T2_Cross = Theta2_Cross_Local + offset;
-T3_Cross = Theta3_Cross_Local + offset;
+% --- กำหนดค่า Output (สลับตามความเหมาะสมของรูปกราฟ) ---
+% ปกติ Sol1 จะเป็น Open สำหรับ Configuration นี้
+T2_Open = theta2_sol1;
+T3_Open = theta3_sol1;
 
-Theta4_Global = q4_local + offset;
+T2_Cross = theta2_sol2;
+T3_Cross = theta3_sol2;
 
 % ==========================================
-% 4. PLOTTING (VECTOR LOOP)
+% 3. PLOTTING
 % ==========================================
-% Global Rotation Matrix
-Rot = exp(1i * offset);
+% Vector Definitions for Plotting
 
-% Ground (Pink)
-R1 = d * exp(1i * offset);
+% Ground
+R_Ground = O4; % Vector from O2 to O4
 
-% --- สร้างเวกเตอร์ Case 1 (Open) ---
-R2_Op = a * exp(1i * T2_Open);           % Link 2 (Cyan) - เริ่มที่ O2 (0,0)
-R4_Op = c * exp(1i * Theta4_Global);     % Link 4 (Brown) - สัมพัทธ์กับ O4
-% Link 3 (Blue) ต้องเชื่อมปลาย R2 ไปหาปลาย R4
-% ตำแหน่งปลาย R4 (Point B) = R1 + R4_Op
-% ตำแหน่งปลาย R2 (Point A) = R2_Op
-% เวกเตอร์ R3 = B - A
-vec_B_Op = R1 + R4_Op;
-vec_A_Op = R2_Op;
-R3_Op = vec_B_Op - vec_A_Op;
+% --- Case 1: Open ---
+R2_Op = a * exp(1i * T2_Open);
+R4_Op = R4_vec; % จาก O4
+R3_Op = Point_B - R2_Op;
 
-% --- สร้างเวกเตอร์ Case 2 (Crossed) ---
+% --- Case 2: Crossed ---
 R2_Cr = a * exp(1i * T2_Cross);
-R4_Cr = c * exp(1i * Theta4_Global);
-vec_B_Cr = R1 + R4_Cr;
-vec_A_Cr = R2_Cr;
-R3_Cr = vec_B_Cr - vec_A_Cr;
+R4_Cr = R4_vec;
+R3_Cr = Point_B - R2_Cr;
 
-% --- PLOT ---
 figure(1); clf;
 
-% Subplot 1: Case 1 (Open)
+% Subplot 1: Open Case
 subplot(1,2,1); hold on; grid on; axis equal;
-title('Case 1: Open Circuit');
-% Ground
-plot([0 real(R1)], [0 imag(R1)], 'm-', 'LineWidth', 2);
-% Link 2 (Cyan)
-quiver(0, 0, real(R2_Op), imag(R2_Op), 0, 'c', 'LineWidth', 2, 'MaxHeadSize', 0.5);
-% Link 4 (Brown) เริ่มที่ O4
-quiver(real(R1), imag(R1), real(R4_Op), imag(R4_Op), 0, 'Color', [0.6 0.3 0], 'LineWidth', 2, 'MaxHeadSize', 0.5);
-% Link 3 (Blue)
-quiver(real(R2_Op), imag(R2_Op), real(R3_Op), imag(R3_Op), 0, 'b', 'LineWidth', 2, 'MaxHeadSize', 0.5);
+title('Case 1: Open (Parallelogram)');
+% Plot Ground (Pink)
+plot([0 real(O4)], [0 imag(O4)], 'm-', 'LineWidth', 2);
+% Plot Link 2 (Cyan)
+plot([0 real(R2_Op)], [0 imag(R2_Op)], 'c-', 'LineWidth', 2);
+% Plot Link 4 (Brown) - Start at O4
+plot([real(O4) real(O4)+real(R4_Op)], [imag(O4) imag(O4)+imag(R4_Op)], 'Color', [0.6 0.3 0], 'LineWidth', 2);
+% Plot Link 3 (Blue) - Connect A to B
+plot([real(R2_Op) real(Point_B)], [imag(R2_Op) imag(Point_B)], 'b-', 'LineWidth', 2);
 
-% Subplot 2: Case 2 (Crossed)
+% Subplot 2: Crossed Case
 subplot(1,2,2); hold on; grid on; axis equal;
-title('Case 2: Crossed Circuit');
-% Ground
-plot([0 real(R1)], [0 imag(R1)], 'm-', 'LineWidth', 2);
-% Link 2 (Cyan)
-quiver(0, 0, real(R2_Cr), imag(R2_Cr), 0, 'c', 'LineWidth', 2, 'MaxHeadSize', 0.5);
-% Link 4 (Brown) เริ่มที่ O4
-quiver(real(R1), imag(R1), real(R4_Cr), imag(R4_Cr), 0, 'Color', [0.6 0.3 0], 'LineWidth', 2, 'MaxHeadSize', 0.5);
-% Link 3 (Blue)
-quiver(real(R2_Cr), imag(R2_Cr), real(R3_Cr), imag(R3_Cr), 0, 'b', 'LineWidth', 2, 'MaxHeadSize', 0.5);
+title('Case 2: Crossed');
+% Plot Ground (Pink)
+plot([0 real(O4)], [0 imag(O4)], 'm-', 'LineWidth', 2);
+% Plot Link 2 (Cyan)
+plot([0 real(R2_Cr)], [0 imag(R2_Cr)], 'c-', 'LineWidth', 2);
+% Plot Link 4 (Brown)
+plot([real(O4) real(O4)+real(R4_Cr)], [imag(O4) imag(O4)+imag(R4_Cr)], 'Color', [0.6 0.3 0], 'LineWidth', 2);
+% Plot Link 3 (Blue)
+plot([real(R2_Cr) real(Point_B)], [imag(R2_Cr) imag(Point_B)], 'b-', 'LineWidth', 2);
 
-% --- DISPLAY VALUES ---
+% --- DISPLAY RESULTS ---
 disp('======================================');
 disp(['Loop 1 Analysis (Input Theta4 = ' num2str(theta4_deg) ' deg)']);
 disp('======================================');
 disp('--- CASE 1 (OPEN) ---');
-disp(['  Link 2 (Cyan):  ', num2str(rad2deg(T2_Open))]);
-disp(['  Link 3 (Blue):  ', num2str(rad2deg(angle(R3_Op)))]);
+disp(['  Link 2 (Cyan):  ', num2str(rad2deg(T2_Open) )]); % Global Angle
+disp(['  Link 3 (Blue):  ', num2str(rad2deg(T3_Open) )]);
 disp(' ');
 disp('--- CASE 2 (CROSSED) ---');
-disp(['  Link 2 (Cyan):  ', num2str(rad2deg(T2_Cross))]);
-disp(['  Link 3 (Blue):  ', num2str(rad2deg(angle(R3_Cr)))]);
+disp(['  Link 2 (Cyan):  ', num2str(rad2deg(T2_Cross) )]);
+disp(['  Link 3 (Blue):  ', num2str(rad2deg(T3_Cross) )]);
