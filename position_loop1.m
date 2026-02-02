@@ -6,157 +6,147 @@ clc
 % 1. PARAMETERS & INPUT
 % ==========================================
 L1 = 0.210; % Ground (Pink) - d
-L2 = 0.118; % Crank (Cyan) - a (Output in this calc)
+L2 = 0.118; % Crank (Cyan) - a
 L3 = 0.210; % Coupler (Blue) - b
-L4 = 0.118; % Rocker (Brown) - c (Input in this calc)
+L4 = 0.118; % Rocker (Brown) - c (Input)
 
-% Assign names for calculation
+% Assign Canonical Names
 d = L1;
-a = L2; 
-b = L3; 
-c = L4; 
+a = L2; % (Output in this calculation)
+b = L3;
+c = L4; % (Input in this calculation)
 
 % Input Parameters
 theta4_deg_global = 102.05; 
 offset_deg = 0.81;
 
-% Convert to radians
+% Convert to radians and Remove Offset (To Local Frame)
 offset = deg2rad(offset_deg);
-% Global Input Angle relative to Ground
-theta4_local = deg2rad(theta4_deg_global) - offset; 
+q4_local = deg2rad(theta4_deg_global) - offset;
 
 % ==========================================
-% 2. POSITION ANALYSIS (Inverted Mechanism)
+% 2. CALCULATION (Inverted Mechanism)
 % ==========================================
-% Concept: ย้ายจุดอ้างอิงไปที่ O4 (Link 4 เป็น Input)
-% ต้องหมุนแกน Input ไป 180 องศา (pi) เพื่อให้ตรงกับ Frame การคำนวณมาตรฐาน
-q_in_calc = theta4_local - pi; 
+% IMPORTANT: Shift Input by -180 degrees (pi) because we are calculating 
+% from O4 looking back at O2 (Frame is rotated 180 deg)
+q_in_calc = q4_local - pi; 
 
-% Set parameters for calculation (Input=c, Output=a)
-d_calc = d;
-a_calc = c; % Link 4 acts as driver
-b_calc = b;
-c_calc = a; % Link 2 acts as follower
+% Swap Constants for Inverted Calculation (Input=c, Output=a)
+d_cal = d;
+a_cal = c; % Link 4 is Driver
+b_cal = b;
+c_cal = a; % Link 2 is Follower
 
-% Freudenstein K-Constants
-K1 = d_calc/a_calc;
-K2 = d_calc/c_calc;
-K3 = (a_calc^2 - b_calc^2 + c_calc^2 + d_calc^2)/(2*a_calc*c_calc);
-K4 = d_calc/b_calc;
-K5 = (c_calc^2 - d_calc^2 - a_calc^2 - b_calc^2)/(2*a_calc*b_calc);
+% Freudenstein Constants (Inverted)
+K1 = d_cal/a_cal;
+K2 = d_cal/c_cal;
+K3 = (a_cal^2 - b_cal^2 + c_cal^2 + d_cal^2)/(2*a_cal*c_cal);
+K4 = d_cal/b_cal;
+K5 = (c_cal^2 - d_cal^2 - a_cal^2 - b_cal^2)/(2*a_cal*b_cal);
 
-% Coefficients (A, B, C, D, E, F)
+% Coefficients for Theta 2 (Output)
 A = cos(q_in_calc) - K1 - K2*cos(q_in_calc) + K3;
 B = -2*sin(q_in_calc);
 C = K1 - (K2+1)*cos(q_in_calc) + K3;
 
+% Coefficients for Theta 3 (Coupler)
 D_val = cos(q_in_calc) - K1 + K4*cos(q_in_calc) + K5;
 E_val = -2*sin(q_in_calc);
 F_val = K1 + (K4-1)*cos(q_in_calc) + K5;
 
-% --- SOLVE QUADRATIC (Follow Example Logic) ---
+% Solve Quadratic Roots
 det_AC = sqrt(B^2 - 4*A*C);
 det_DF = sqrt(E_val^2 - 4*D_val*F_val);
 
-% --- CASE 1: OPEN (Matches Example's (-B - sqrt)) ---
-% Output Angle (Link 2)
-q_out_1_calc = 2*atan2((-B - det_AC), (2*A)); 
-% Coupler Angle (Link 3)
-q3_1_calc    = 2*atan2((-E_val - det_DF), (2*D_val));
+% --- CASE 1: OPEN (Standard Formula: -sqrt) ---
+% Note: Using (-B - sqrt) aligns with the "Open" config logic in your example
+q2_local_calc_1 = 2*atan2((-B - det_AC), (2*A));
+q3_local_calc_1 = 2*atan2((-E_val - det_DF), (2*D_val));
 
-% --- CASE 2: CROSSED (Matches Example's (-B + sqrt)) ---
-% Output Angle (Link 2)
-q_out_2_calc = 2*atan2((-B + det_AC), (2*A));
-% Coupler Angle (Link 3)
-q3_2_calc    = 2*atan2((-E_val + det_DF), (2*D_val));
+% --- CASE 2: CROSSED (Standard Formula: +sqrt) ---
+% Note: Using (-B + sqrt) aligns with the "Crossed" config logic
+q2_local_calc_2 = 2*atan2((-B + det_AC), (2*A));
+q3_local_calc_2 = 2*atan2((-E_val + det_DF), (2*D_val));
 
 % ==========================================
 % 3. TRANSFORM BACK TO GLOBAL
 % ==========================================
-% หมุนค่ากลับ 180 องศา (+pi) เพื่อคืนสู่ Global Frame เดิม
-Theta2_Open = q_out_1_calc + pi;
-Theta3_Open = q3_1_calc + pi;
+% IMPORTANT: Add +180 degrees (pi) back to rotate frame to Global (O2 origin)
+Theta2_Open_Local  = q2_local_calc_1 + pi;
+Theta3_Open_Local  = q3_local_calc_1 + pi;
 
-Theta2_Cross = q_out_2_calc + pi;
-Theta3_Cross = q3_2_calc + pi;
+Theta2_Cross_Local = q2_local_calc_2 + pi;
+Theta3_Cross_Local = q3_local_calc_2 + pi;
 
-Theta4_Final = theta4_local; % Input remains same
+% Add Offset for Final Global Angles
+T2_Open = Theta2_Open_Local + offset;
+T3_Open = Theta3_Open_Local + offset;
 
-% ==========================================
-% 4. DISPLAY RESULTS
-% ==========================================
-disp('======================================');
-disp('       POSITION RESULTS (Degrees)');
-disp('======================================');
-disp(['Input Theta 4: ', num2str(theta4_deg_global)]);
-disp(' ');
-disp('--- CASE 1 (OPEN) ---');
-disp(['  Link 2 (Cyan):  ', num2str(rad2deg(Theta2_Open) + offset_deg)]);
-disp(['  Link 3 (Blue):  ', num2str(rad2deg(Theta3_Open) + offset_deg)]);
-disp(' ');
-disp('--- CASE 2 (CROSSED) ---');
-disp(['  Link 2 (Cyan):  ', num2str(rad2deg(Theta2_Cross) + offset_deg)]);
-disp(['  Link 3 (Blue):  ', num2str(rad2deg(Theta3_Cross) + offset_deg)]);
+T2_Cross = Theta2_Cross_Local + offset;
+T3_Cross = Theta3_Cross_Local + offset;
+
+Theta4_Global = q4_local + offset; % Same as Input
 
 % ==========================================
-% 5. PLOTTING VECTORS
+% 4. VECTOR CONSTRUCTION & PLOTTING
 % ==========================================
-% Global Rotation due to Offset
 Rot = exp(1i * offset);
 
-% Ground Vector (Pink)
-RO4O2 = d * exp(1i * 0) * Rot; 
+% Ground (Pink)
+R1 = d * exp(1i * offset);
 
-% --- CASE 1: OPEN ---
-% Link 2 (Cyan)
-R_Cyan_1 = a * exp(1i * Theta2_Open) * Rot;
-% Link 4 (Brown)
-R_Brown_1 = c * exp(1i * Theta4_Final) * Rot;
-% Link 3 (Blue) - Connecting Tip of 2 to Tip of 4
-% Logic: R_Ground + R_Link4 = R_Link2 + R_Link3
-% So: R_Link3 = (R_Ground + R_Link4) - R_Link2
-Vec_B_1 = RO4O2 + R_Brown_1; % Tip of Link 4 (Point B)
-Vec_A_1 = R_Cyan_1;          % Tip of Link 2 (Point A) Note: Link 2 starts at (0,0)
-R_Blue_1 = Vec_B_1 - Vec_A_1;
+% --- CASE 1 Vectors ---
+R2_Op = a * exp(1i * T2_Open);           % Link 2 (Cyan)
+R4_Op = c * exp(1i * Theta4_Global);     % Link 4 (Brown)
+% Calculate R3 (Link 3) from Vector Loop Closure
+% Loop: O2->A->B->O4 => R2 + R3 - R4 - R1 = 0 => R3 = R1 + R4 - R2
+% Note: R4 is defined from O4, so vector to B is (R1 + R4)
+vec_B_Op = R1 + R4_Op; 
+vec_A_Op = R2_Op;
+R3_Op = vec_B_Op - vec_A_Op;
 
-% --- CASE 2: CROSSED ---
-R_Cyan_2 = a * exp(1i * Theta2_Cross) * Rot;
-R_Brown_2 = c * exp(1i * Theta4_Final) * Rot;
+% --- CASE 2 Vectors ---
+R2_Cr = a * exp(1i * T2_Cross);          % Link 2 (Cyan)
+R4_Cr = c * exp(1i * Theta4_Global);     % Link 4 (Brown)
+vec_B_Cr = R1 + R4_Cr;
+vec_A_Cr = R2_Cr;
+R3_Cr = vec_B_Cr - vec_A_Cr;
 
-Vec_B_2 = RO4O2 + R_Brown_2;
-Vec_A_2 = R_Cyan_2;
-R_Blue_2 = Vec_B_2 - Vec_A_2;
-
-% --- PLOT SETUP ---
+% --- PLOT ---
 figure(1); clf;
 
-% Subplot 1: Open
+% Subplot 1: Case 1 (Open)
 subplot(1,2,1); hold on; grid on; axis equal;
-title('Case 1: Open');
-% Plot Ground
-plot([0 real(RO4O2)], [0 imag(RO4O2)], 'm-', 'LineWidth', 2); 
-% Plot Link 2 (Cyan)
-plot([0 real(R_Cyan_1)], [0 imag(R_Cyan_1)], 'c-', 'LineWidth', 2);
-% Plot Link 4 (Brown) - Starts from end of Ground
-plot([real(RO4O2) real(RO4O2)+real(R_Brown_1)], ...
-     [imag(RO4O2) imag(RO4O2)+imag(R_Brown_1)], 'Color', [0.6 0.3 0], 'LineWidth', 2);
-% Plot Link 3 (Blue) - Connects Cyan to Brown
-plot([real(R_Cyan_1) real(R_Cyan_1)+real(R_Blue_1)], ...
-     [imag(R_Cyan_1) imag(R_Cyan_1)+imag(R_Blue_1)], 'b-', 'LineWidth', 2);
+title('Case 1: Open Circuit');
+% Ground
+plot([0 real(R1)], [0 imag(R1)], 'm-', 'LineWidth', 2);
+% Link 2 (Cyan)
+plot([0 real(R2_Op)], [0 imag(R2_Op)], 'c-', 'LineWidth', 2);
+% Link 4 (Brown) - from O4
+plot([real(R1) real(vec_B_Op)], [imag(R1) imag(vec_B_Op)], 'Color', [0.6 0.3 0], 'LineWidth', 2);
+% Link 3 (Blue) - Connects Tips
+plot([real(R2_Op) real(vec_B_Op)], [imag(R2_Op) imag(vec_B_Op)], 'b-', 'LineWidth', 2);
 
-% Subplot 2: Crossed
+% Subplot 2: Case 2 (Crossed)
 subplot(1,2,2); hold on; grid on; axis equal;
-title('Case 2: Crossed');
-% Plot Ground
-plot([0 real(RO4O2)], [0 imag(RO4O2)], 'm-', 'LineWidth', 2);
-% Plot Link 2 (Cyan)
-plot([0 real(R_Cyan_2)], [0 imag(R_Cyan_2)], 'c-', 'LineWidth', 2);
-% Plot Link 4 (Brown)
-plot([real(RO4O2) real(RO4O2)+real(R_Brown_2)], ...
-     [imag(RO4O2) imag(RO4O2)+imag(R_Brown_2)], 'Color', [0.6 0.3 0], 'LineWidth', 2);
-% Plot Link 3 (Blue)
-plot([real(R_Cyan_2) real(R_Cyan_2)+real(R_Blue_2)], ...
-     [imag(R_Cyan_2) imag(R_Cyan_2)+imag(R_Blue_2)], 'b-', 'LineWidth', 2);
+title('Case 2: Crossed Circuit');
+% Ground
+plot([0 real(R1)], [0 imag(R1)], 'm-', 'LineWidth', 2);
+% Link 2 (Cyan)
+plot([0 real(R2_Cr)], [0 imag(R2_Cr)], 'c-', 'LineWidth', 2);
+% Link 4 (Brown)
+plot([real(R1) real(vec_B_Cr)], [imag(R1) imag(vec_B_Cr)], 'Color', [0.6 0.3 0], 'LineWidth', 2);
+% Link 3 (Blue)
+plot([real(R2_Cr) real(vec_B_Cr)], [imag(R2_Cr) imag(vec_B_Cr)], 'b-', 'LineWidth', 2);
 
-% Use Quiver as requested for vectors (Optional overlay)
-quiver(0,0, real(R_Cyan_1), imag(R_Cyan_1), 0, 'c', 'LineWidth', 1);
+% --- DISPLAY RESULTS ---
+disp('======================================');
+disp(['Loop 1 Analysis (Input Theta4 = ' num2str(theta4_deg_global) ' deg)']);
+disp('======================================');
+disp('--- CASE 1 (OPEN) ---');
+disp(['  Link 2 (Cyan):  ', num2str(rad2deg(T2_Open))]);
+disp(['  Link 3 (Blue):  ', num2str(rad2deg(angle(R3_Op)))]);
+disp(' ');
+disp('--- CASE 2 (CROSSED) ---');
+disp(['  Link 2 (Cyan):  ', num2str(rad2deg(T2_Cross))]);
+disp(['  Link 3 (Blue):  ', num2str(rad2deg(angle(R3_Cr)))]);
