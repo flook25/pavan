@@ -5,113 +5,120 @@ clc
 % ==========================================
 % 1. PARAMETERS & INPUT
 % ==========================================
-% Lengths (meters) based on your request
-d = 0.210; % Ground (L1) [cite: 522]
-a = 0.118; % Link 2 (Crank) [cite: 522]
-b = 0.210; % Link 3 (Coupler) [cite: 522]
-c = 0.118; % Link 4 (Rocker/Input here) [cite: 522]
+L1 = 0.210; % Ground (Pink)
+L2 = 0.118; % Crank (Cyan) - Output
+L3 = 0.210; % Coupler (Blue)
+L4 = 0.118; % Rocker (Brown) - Input
 
-% Input Angles
-theta4_deg_global = 102.05; % Input angle for Link 4
-offset_deg = 0.81;          % Ground offset angle
+d = L1;
+a = L2;
+b = L3;
+c = L4;
 
-% Convert to Radians
+theta4_deg = 102.05; 
+offset_deg = 0.81;
 offset = deg2rad(offset_deg);
-% Convert global input to local frame (relative to ground link d)
-theta4_local = deg2rad(theta4_deg_global) - offset;
 
 % ==========================================
-% 2. CALCULATION (Inverted K-Method)
+% 2. CALCULATION (Inverted Local Frame)
 % ==========================================
-% The standard Norton formulas solve for Theta4 given Theta2. [cite: 383, 418]
-% Since we have Theta4 and need Theta2, we swap the roles of 'a' and 'c'.
-% Imagine Link 4 is the driver (crank) and Link 2 is the follower.
 
-% Temporary lengths for the calculation
-a_prime = c; % Link 4 acts as driver
-c_prime = a; % Link 2 acts as follower
-b_prime = b; % Coupler remains coupler
-d_prime = d; % Ground remains ground
+q_in = deg2rad(theta4_deg); % Local Input (relative to O4->O2)
 
-% Calculate K constants [cite: 376, 377, 378]
-K1 = d_prime / a_prime;
-K2 = d_prime / c_prime;
-K3 = (a_prime^2 - b_prime^2 + c_prime^2 + d_prime^2) / (2 * a_prime * c_prime);
+% Constants for Inverted Calculation (Link 4 is Crank, Link 2 is Rocker)
+% a_calc = c (L4), c_calc = a (L2)
+K1 = d/c;
+K2 = d/a;
+K3 = (c^2 - b^2 + a^2 + d^2)/(2*c*a);
+K4 = d/b;
+K5 = (a^2 - d^2 - c^2 - b^2)/(2*c*b);
 
-% Calculate A, B, C coefficients using Theta4 as input [cite: 415, 416]
-% Note: Variable is theta4_local because K-equations assume horizontal ground
-A_val = cos(theta4_local) - K1 - K2*cos(theta4_local) + K3;
-B_val = -2 * sin(theta4_local);
-C_val = K1 - (K2 + 1)*cos(theta4_local) + K3;
+% Coefficients
+A = cos(q_in) - K1 - K2*cos(q_in) + K3;
+B = -2*sin(q_in);
+C = K1 - (K2+1)*cos(q_in) + K3;
 
-% Solve for Theta2 (Open and Crossed configurations) [cite: 418]
-% We are solving for theta2 because we swapped inputs
-det_root = sqrt(B_val^2 - 4*A_val*C_val);
+D_val = cos(q_in) - K1 + K4*cos(q_in) + K5;
+E_val = -2*sin(q_in);
+F_val = K1 + (K4-1)*cos(q_in) + K5;
 
-% Solution 1 (Open)
-theta2_local_1 = 2 * atan2((-B_val - det_root), (2 * A_val));
-% Solution 2 (Crossed)
-theta2_local_2 = 2 * atan2((-B_val + det_root), (2 * A_val));
+% Solve Quadratic Roots
+det_AC = sqrt(B^2 - 4*A*C);
+det_DF = sqrt(E_val^2 - 4*D_val*F_val);
 
-% Calculate Theta3 for both cases using vector components [cite: 51, 56]
-% R3 = R1 + R4 - R2  =>  b*e^j*t3 = d + c*e^j*t4 - a*e^j*t2
-R1 = d;
-R4 = c * exp(1i * theta4_local);
+% --- Calculate Local Angles ---
+% Case 1: Open (-sqrt)
+q2_loc_1 = 2*atan2((-B - det_AC), (2*A));
+q3_loc_1 = 2*atan2((-E_val - det_DF), (2*D_val));
 
-% Case 1
-R2_1 = a * exp(1i * theta2_local_1);
-R3_vector_1 = R1 + R4 - R2_1;
-theta3_local_1 = angle(R3_vector_1);
-
-% Case 2
-R2_2 = a * exp(1i * theta2_local_2);
-R3_vector_2 = R1 + R4 - R2_2;
-theta3_local_2 = angle(R3_vector_2);
-
-% Convert back to Global Angles
-theta2_global_1 = rad2deg(theta2_local_1 + offset);
-theta3_global_1 = rad2deg(theta3_local_1 + offset);
-theta2_global_2 = rad2deg(theta2_local_2 + offset);
-theta3_global_2 = rad2deg(theta3_local_2 + offset);
-
-% Display Results
-disp('=== RESULTS FOR LOOP 1 ===');
-disp(['Input Theta4: ', num2str(theta4_deg_global)]);
-disp(' ');
-disp('--- Configuration 1 ---');
-disp(['Theta2 (Link 2): ', num2str(theta2_global_1)]);
-disp(['Theta3 (Link 3): ', num2str(theta3_global_1)]);
-disp(' ');
-disp('--- Configuration 2 ---');
-disp(['Theta2 (Link 2): ', num2str(theta2_global_2)]);
-disp(['Theta3 (Link 3): ', num2str(theta3_global_2)]);
+% Case 2: Crossed (+sqrt)
+q2_loc_2 = 2*atan2((-B + det_AC), (2*A));
+q3_loc_2 = 2*atan2((-E_val + det_DF), (2*D_val));
 
 % ==========================================
-% 3. PLOTTING VECTORS [cite: 9, 219]
+% 3. TRANSFORM TO GLOBAL (Rotate +180)
 % ==========================================
-figure(1); clf; hold on; grid on; axis equal;
-title(['Four-Bar Loop 1 (Input \theta_4 = ' num2str(theta4_deg_global) '^\circ)']);
-xlabel('X (m)'); ylabel('Y (m)');
 
-% Define Pivot Points (Global Frame)
-O2 = 0 + 0i;
-O4 = d * exp(1i * offset);
+% Input (Brown)
+T4_Global = q_in + pi + offset;
 
-% Choose Configuration 1 to plot (Change to _2 to see the crossed circuit)
-t2_plot = theta2_local_1 + offset;
-t3_plot = theta3_local_1 + offset;
-t4_plot = theta4_local + offset;
+% Case 1 (Open)
+T2_Open = q2_loc_1 + pi + offset;
+T3_Open = q3_loc_1 + pi + offset;
 
-% Vector positions
-R_O2 = O2;              % Start Point
-R_A = O2 + a * exp(1i * t2_plot); % Tip of Link 2
-R_B = O4 + c * exp(1i * t4_plot); % Tip of Link 4 (calculated from O4)
-R_O4 = O4;              % End Point
+% Case 2 (Crossed)
+T2_Cross = q2_loc_2 + pi + offset;
+T3_Cross = q3_loc_2 + pi + offset;
 
-% Plot Links
-plot([real(R_O2), real(R_A)], [imag(R_O2), imag(R_A)], 'g-o', 'LineWidth', 2, 'DisplayName', 'Link 2 (a)');
-plot([real(R_A), real(R_B)], [imag(R_A), imag(R_B)], 'b-o', 'LineWidth', 2, 'DisplayName', 'Link 3 (b)');
-plot([real(R_O4), real(R_B)], [imag(R_O4), imag(R_B)], 'k-o', 'LineWidth', 2, 'DisplayName', 'Link 4 (c)');
-plot([real(R_O2), real(R_O4)], [imag(R_O2), imag(R_O4)], 'm--', 'LineWidth', 2, 'DisplayName', 'Ground (d)');
+% ==========================================
+% 4. VECTOR CONSTRUCTION & PLOTTING
+% ==========================================
+% Global Rotation
+Rot = exp(1i * offset);
 
-legend('Location', 'best');
+% Ground (Pink) - Fixed at O2-O4
+% Note: In Global, Ground is vector from O2(0,0) to O4
+R1 = d * exp(1i * offset); 
+
+% Function to plot
+figure(1); clf;
+
+% --- SUBPLOT 1: Case 1 (Open) ---์
+R2_Op = a * exp(1i * T2_Open);       % Cyan (Link 2)
+R4_Op = c * exp(1i * T4_Global);     % Brown (Link 4) from O4
+% Link 3 
+vec_B_Op = R1 + R4_Op; %  Link 4 (จุด B)
+vec_A_Op = R2_Op;      % Link 2 (จุด A)
+R3_Op = vec_B_Op - vec_A_Op;
+
+subplot(1,2,1); hold on; grid on; axis equal;
+title('Case 1: Open (Parallelogram)');
+% Plot
+plot([0 real(R1)], [0 imag(R1)], 'm-', 'LineWidth', 2); % Pink (Ground)
+quiver(0, 0, real(R2_Op), imag(R2_Op), 0, 'c', 'LineWidth', 2, 'MaxHeadSize',0.5); % Cyan
+quiver(real(R1), imag(R1), real(R4_Op), imag(R4_Op), 0, 'Color',[0.6 0.3 0], 'LineWidth', 2, 'MaxHeadSize',0.5); % Brown
+quiver(real(R2_Op), imag(R2_Op), real(R3_Op), imag(R3_Op), 0, 'b', 'LineWidth', 2, 'MaxHeadSize',0.5); % Blue
+
+% --- SUBPLOT 2: Case 2 (Crossed) ---
+% สร้างเวกเตอร์
+R2_Cr = a * exp(1i * T2_Cross);       % Cyan (Link 2)
+R4_Cr = c * exp(1i * T4_Global);      % Brown (Link 4)
+% Link 3 เชื่อมปลาย
+vec_B_Cr = R1 + R4_Cr;
+vec_A_Cr = R2_Cr;
+R3_Cr = vec_B_Cr - vec_A_Cr;
+
+subplot(1,2,2); hold on; grid on; axis equal;
+title('Case 2: Crossed');
+% Plot
+plot([0 real(R1)], [0 imag(R1)], 'm-', 'LineWidth', 2); % Pink (Ground)
+quiver(0, 0, real(R2_Cr), imag(R2_Cr), 0, 'c', 'LineWidth', 2, 'MaxHeadSize',0.5); % Cyan
+quiver(real(R1), imag(R1), real(R4_Cr), imag(R4_Cr), 0, 'Color',[0.6 0.3 0], 'LineWidth', 2, 'MaxHeadSize',0.5); % Brown
+quiver(real(R2_Cr), imag(R2_Cr), real(R3_Cr), imag(R3_Cr), 0, 'b', 'LineWidth', 2, 'MaxHeadSize',0.5); % Blue
+
+% Display Check
+disp('=======================================');
+disp(' (Case 2: Crossed)');
+disp('=======================================');
+disp(['Cyan Angle : ', num2str(rad2deg(T2_Cross))]);
+disp(['Brown Angle : ', num2str(rad2deg(T4_Global))]);
