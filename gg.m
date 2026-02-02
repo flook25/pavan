@@ -23,12 +23,12 @@ q4_global = deg2rad(theta_grey_deg);
 q4_local = q4_global - offset;
 
 % ==========================================
-% 2. CALCULATION (Same Correct Logic)
+% 2. CALCULATION (Inverted Method)
 % ==========================================
-% Step 1: Inverted Frame
+% หมุน Input ไป -180 (Inverted Frame)
 q_in_calc = q4_local - pi;
 
-% Step 2: Constants (Input=c, Output=a)
+% Constants (Input=c, Output=a)
 K1 = d/c;
 K2 = d/a;
 K3 = (c^2 - b^2 + a^2 + d^2)/(2*c*a);
@@ -48,93 +48,71 @@ F_val = K1 + (K4-1)*cos(q_in_calc) + K5;
 det_AC = sqrt(B^2 - 4*A*C);
 det_DF = sqrt(E_val^2 - 4*D_val*F_val);
 
-% Case 1
+% --- CASE 1 (Open Formula: -sqrt) ---
 q2_loc_1 = 2*atan2((-B - det_AC), (2*A));
 q3_loc_1 = 2*atan2((-E_val - det_DF), (2*D_val));
 
-% Case 2
+% --- CASE 2 (Crossed Formula: +sqrt) ---
 q2_loc_2 = 2*atan2((-B + det_AC), (2*A));
 q3_loc_2 = 2*atan2((-E_val + det_DF), (2*D_val));
 
-% Step 3: Global Angles (Correct Values)
+% หมุนกลับ +180 (Global Frame)
 T2_Open = q2_loc_1 + pi + offset;
 T3_Open = q3_loc_1 + pi + offset;
 
 T2_Cross = q2_loc_2 + pi + offset;
 T3_Cross = q3_loc_2 + pi + offset;
 
-T4_Global = q4_global;
-
 % ==========================================
-% 3. DISPLAY RESULTS (Keep Values Same)
+% 3. DISPLAY RESULTS
 % ==========================================
 disp('======================================');
 disp(['LOOP 3 RESULTS (Input Grey = ' num2str(theta_grey_deg) ')']);
 disp('======================================');
-disp('--- CASE 1 (Open) ---');
-disp(['  Green  (Theta 2): ', num2str(rad2deg(T2_Open))]);
-disp(['  Yellow (Theta 3): ', num2str(rad2deg(T3_Open))]);
-disp(' ');
-disp('--- CASE 2 (Crossed) ---');
+disp('--- CASE 2 (Crossed) - PLOTTED FIRST ---');
 disp(['  Green  (Theta 2): ', num2str(rad2deg(T2_Cross))]);
 disp(['  Yellow (Theta 3): ', num2str(rad2deg(T3_Cross))]);
+disp(' ');
+disp('--- CASE 1 (Open) - PLOTTED SECOND ---');
+disp(['  Green  (Theta 2): ', num2str(rad2deg(T2_Open))]);
+disp(['  Yellow (Theta 3): ', num2str(rad2deg(T3_Open))]);
 
 % ==========================================
-% 4. PLOTTING (SWAPPED VIEW)
+% 4. PLOTTING (SWAPPED ORDER)
 % ==========================================
-% Trick: เราจะพล็อตโดยให้ O4 เป็นจุด (0,0) และหมุนมุมมอง 180 องศา
-% เพื่อให้รูป "สลับจากซ้ายมาขวา" (Mirror/Flip View)
-% โดยการลบ pi ออกจากมุมทั้งหมดในการ Plot
+Rot = exp(1j * offset);
+R1 = d * exp(1j * offset); % Ground
 
-Rot_View = -pi; % หมุนภาพ 180 องศา
+% Input Vector (Grey)
+R4_Vec = c * exp(1j * q4_global);
 
-% จุด O4 อยู่ที่ (0,0)
-O4_Plot = 0; 
-% จุด O2 อยู่ที่ระยะ d (หมุนมุม offset + view)
-O2_Plot = d * exp(1j * (offset + Rot_View));
+% --- Calculate Vectors ---
+% Case 2 (Crossed) Vectors
+R2_Cr = a * exp(1j * T2_Cross); 
+vec_B_Cr = R1 + R4_Vec;
+vec_A_Cr = R2_Cr;
+R3_Cr = vec_B_Cr - vec_A_Cr; 
 
-% สร้างเวกเตอร์สำหรับ Plot (Apply Rot_View)
-% Input Link (Grey) ที่ O4
-Vec_Grey_Plot = c * exp(1j * (T4_Global + Rot_View));
-
-% --- Case 1 Vectors ---
-% Output Link (Green) ที่ O2
-Vec_Green_Op_Plot = a * exp(1j * (T2_Open + Rot_View));
-% หาจุดปลาย
-Point_B_Op = O4_Plot + Vec_Grey_Plot;     % ปลาย Grey
-Point_A_Op = O2_Plot + Vec_Green_Op_Plot; % ปลาย Green
-% Yellow
-Vec_Yellow_Op_Plot = Point_B_Op - Point_A_Op;
-
-% --- Case 2 Vectors ---
-Vec_Green_Cr_Plot = a * exp(1j * (T2_Cross + Rot_View));
-Point_B_Cr = O4_Plot + Vec_Grey_Plot;
-Point_A_Cr = O2_Plot + Vec_Green_Cr_Plot;
-Vec_Yellow_Cr_Plot = Point_B_Cr - Point_A_Cr;
-
+% Case 1 (Open) Vectors
+R2_Op = a * exp(1j * T2_Open); 
+vec_B_Op = R1 + R4_Vec;
+vec_A_Op = R2_Op;
+R3_Op = vec_B_Op - vec_A_Op; 
 
 figure(3); clf;
 
-% Subplot 1: Open
+% --- PLOT 1: CASE 2 (Crossed) ---
 subplot(1,2,1); hold on; grid on; axis equal;
-title('Loop 3: Case 1 (Swapped View)');
-% Ground (O4 -> O2)
-plot([real(O4_Plot) real(O2_Plot)], [imag(O4_Plot) imag(O2_Plot)], 'm-', 'LineWidth', 2); 
-% Grey (Input at O4)
-quiver(real(O4_Plot), imag(O4_Plot), real(Vec_Grey_Plot), imag(Vec_Grey_Plot), 0, 'Color', [0.5 0.5 0.5], 'LineWidth', 2, 'MaxHeadSize',0.5); 
-% Green (Output at O2)
-quiver(real(O2_Plot), imag(O2_Plot), real(Vec_Green_Op_Plot), imag(Vec_Green_Op_Plot), 0, 'g', 'LineWidth', 2, 'MaxHeadSize',0.5); 
-% Yellow
-plot([real(Point_A_Op) real(Point_B_Op)], [imag(Point_A_Op) imag(Point_B_Op)], 'y-', 'LineWidth', 2);
+title('Loop 3: Case 2 (Crossed)');
+plot([0 real(R1)], [0 imag(R1)], 'm-', 'LineWidth', 2); % Ground
+quiver(0, 0, real(R2_Cr), imag(R2_Cr), 0, 'g', 'LineWidth', 2, 'MaxHeadSize',0.5); % Green
+quiver(real(R1), imag(R1), real(R4_Vec), imag(R4_Vec), 0, 'Color', [0.5 0.5 0.5], 'LineWidth', 2, 'MaxHeadSize',0.5); % Grey
+quiver(real(R2_Cr), imag(R2_Cr), real(R3_Cr), imag(R3_Cr), 0, 'y', 'LineWidth', 2, 'MaxHeadSize',0.5); % Yellow
 
-% Subplot 2: Crossed
+% --- PLOT 2: CASE 1 (Open) ---
 subplot(1,2,2); hold on; grid on; axis equal;
-title('Loop 3: Case 2 (Swapped View)');
-% Ground
-plot([real(O4_Plot) real(O2_Plot)], [imag(O4_Plot) imag(O2_Plot)], 'm-', 'LineWidth', 2); 
-% Grey
-quiver(real(O4_Plot), imag(O4_Plot), real(Vec_Grey_Plot), imag(Vec_Grey_Plot), 0, 'Color', [0.5 0.5 0.5], 'LineWidth', 2, 'MaxHeadSize',0.5); 
-% Green
-quiver(real(O2_Plot), imag(O2_Plot), real(Vec_Green_Cr_Plot), imag(Vec_Green_Cr_Plot), 0, 'g', 'LineWidth', 2, 'MaxHeadSize',0.5); 
-% Yellow
-plot([real(Point_A_Cr) real(Point_B_Cr)], [imag(Point_A_Cr) imag(Point_B_Cr)], 'y-', 'LineWidth', 2);
+title('Loop 3: Case 1 (Open)');
+plot([0 real(R1)], [0 imag(R1)], 'm-', 'LineWidth', 2); % Ground
+quiver(0, 0, real(R2_Op), imag(R2_Op), 0, 'g', 'LineWidth', 2, 'MaxHeadSize',0.5); % Green
+quiver(real(R1), imag(R1), real(R4_Vec), imag(R4_Vec), 0, 'Color', [0.5 0.5 0.5], 'LineWidth', 2, 'MaxHeadSize',0.5); % Grey
+quiver(real(R2_Op), imag(R2_Op), real(R3_Op), imag(R3_Op), 0, 'y', 'LineWidth', 2, 'MaxHeadSize',0.5); % Yellow
