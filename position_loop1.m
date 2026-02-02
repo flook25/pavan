@@ -3,131 +3,132 @@ close all
 clc
 
 % ==========================================
-% 1. PARAMETERS & INPUT
+% 1. PARAMETERS
 % ==========================================
 L1 = 0.210; % Ground (Pink) - d
-L2 = 0.118; % Crank (Cyan/Red) - a
+L2 = 0.118; % Crank (Cyan) - a
 L3 = 0.210; % Coupler (Blue) - b
-L4 = 0.118; % Rocker (Brown) - c
+L4 = 0.118; % Rocker (Brown) - c (Input)
 
-% Assign canonical names
+% Assign Canonical Names
 d = L1;
 a = L2;
 b = L3;
 c = L4;
 
-% Ground Offset
-theta1_deg = 0.81;
-theta1 = deg2rad(theta1_deg);
+% Input Parameters
+theta4_deg = 102.05; 
+offset_deg = 0.81;
 
-% --- INPUT: Link 4 (Brown) ---
-q4_global_deg = -102.5; 
-q4 = deg2rad(q4_global_deg) - theta1; % Local Angle
-
-% ==========================================
-% 2. CALCULATION (Find q2, q3 from q4)
-% ==========================================
-
-% Norton's K Constants
-K1 = d/a;
-K2 = d/c;
-K3 = (a^2 - b^2 + c^2 + d^2)/(2*a*c);
-
-% Coefficients A, B, C for finding q2 (Derived from Input q4)
-A = -((1 + K1)*cos(q4) + K2 + K3);
-B = 2*sin(q4);
-C = (1 - K1)*cos(q4) + K2 - K3;
-
-% Solve for q2 (2 Cases)
-det_val = B^2 - 4*A*C;
-if det_val < 0
-    error('No real solution');
-end
-
-% Case 1
-q2_sol1 = 2*atan((-B + sqrt(det_val))/(2*A)); 
-% Case 2
-q2_sol2 = 2*atan((-B - sqrt(det_val))/(2*A));
-
-% Calculate q3 using Vector Sum Logic
-% Case 1
-Vec3_1 = c*exp(1j*q4) + d - a*exp(1j*q2_sol1);
-q3_sol1 = angle(Vec3_1);
-
-% Case 2
-Vec3_2 = c*exp(1j*q4) + d - a*exp(1j*q2_sol2);
-q3_sol2 = angle(Vec3_2);
+% Convert to radians
+offset = deg2rad(offset_deg);
+q_in_local = deg2rad(theta4_deg) - offset; 
 
 % ==========================================
-% 3. CONVERT TO GLOBAL
+% 2. CALCULATION (Inverted Method)
 % ==========================================
-% Global Angles
-q2_1g = q2_sol1 + theta1;
-q3_1g = q3_sol1 + theta1;
+% Link 4 is Input -> Treat 'c' as Crank, 'a' as Follower
+K1 = d/c;
+K2 = d/a;
+K3 = (c^2 - b^2 + a^2 + d^2)/(2*c*a);
+K4 = d/b;
+K5 = (a^2 - d^2 - c^2 - b^2)/(2*c*b);
 
-q2_2g = q2_sol2 + theta1;
-q3_2g = q3_sol2 + theta1;
+% Coefficients for Theta 2 (Output)
+A = cos(q_in_local) - K1 - K2*cos(q_in_local) + K3;
+B = -2*sin(q_in_local);
+C = K1 - (K2+1)*cos(q_in_local) + K3;
 
-q4g = q4 + theta1;
+% Coefficients for Theta 3 (Coupler)
+D_coeff = cos(q_in_local) - K1 + K4*cos(q_in_local) + K5;
+E_coeff = -2*sin(q_in_local);
+F_coeff = K1 + (K4-1)*cos(q_in_local) + K5;
 
-fprintf('--- Results ---\n');
-fprintf('Case 1: Theta2 = %.4f deg, Theta3 = %.4f deg\n', rad2deg(q2_1g), rad2deg(q3_1g));
-fprintf('Case 2: Theta2 = %.4f deg, Theta3 = %.4f deg\n', rad2deg(q2_2g), rad2deg(q3_2g));
+% --- SOLVING QUADRATIC ---
+det_2 = sqrt(B^2 - 4*A*C);
+det_3 = sqrt(E_coeff^2 - 4*D_coeff*F_coeff);
+
+% Calculate Roots
+% Note: Using geometric consistency to pair theta2 and theta3
+root1_q2 = 2*atan2((-B - det_2), (2*A)); 
+root2_q2 = 2*atan2((-B + det_2), (2*A)); 
+
+root1_q3 = 2*atan2((-E_coeff - det_3), (2*D_coeff)); 
+root2_q3 = 2*atan2((-E_coeff + det_3), (2*D_coeff));
+
+% --- ASSIGNMENT (SWAPPED BASED ON FEEDBACK) ---
+% สลับค่าตามที่คุณแจ้งว่า "ค่าสลับกัน"
+% เดิม: Open=root1, Crossed=root2
+% ใหม่: Open=root2, Crossed=root1
+
+% Case 1: Open
+Theta2_Open_Local  = root2_q2; 
+Theta3_Open_Local  = root2_q3;
+
+% Case 2: Crossed
+Theta2_Cross_Local = root1_q2;
+Theta3_Cross_Local = root1_q3;
 
 % ==========================================
-% 4. PLOTTING BOTH CASES
+% 3. VECTOR CONSTRUCTION & PLOTTING
 % ==========================================
-figure('Name', '4-Bar Linkage Analysis: Both Solutions', 'NumberTitle', 'off');
+Rot = exp(1j * offset); 
+Theta4_Global = q_in_local + offset;
 
-% --- PLOT CASE 1 ---
-subplot(1, 2, 1); 
-hold on; axis equal; grid on;
+% --- CASE 1: OPEN ---
+T2_Open = Theta2_Open_Local + offset;
+T3_Open = Theta3_Open_Local + offset;
 
-% Vectors Case 1
-RA_1 = a*exp(1j*q2_1g);
-RBA_1 = b*exp(1j*q3_1g);
-RB_1 = RA_1 + RBA_1; % Position B from Origin
-RO4O2 = d*exp(1j*theta1);
-RBO4 = c*exp(1j*q4g);
+% Vectors Case 1 (Standard Vector Loop: R2+R3 = R1+R4)
+R1_Op = d * exp(1j * offset);            % Ground
+R2_Op = a * exp(1j * T2_Open);           % Link 2 (Cyan)
+R4_Op = c * exp(1j * Theta4_Global);     % Link 4 (Brown)
+% Calculate R3 to ensure closure
+vec_B_Op = R1_Op + R4_Op; 
+vec_A_Op = R2_Op;
+R3_Op = vec_B_Op - vec_A_Op;             % Link 3 (Blue)
 
-% Components
-O2x=0; O2y=0;
-O4x=real(RO4O2); O4y=imag(RO4O2);
-Ax_1=real(RA_1); Ay_1=imag(RA_1);
-Bx_1=real(RB_1); By_1=imag(RB_1);
-
-% Quivers Case 1
-quiver(O2x, O2y, O4x-O2x, O4y-O2y, 0, 'k', 'LineWidth', 2, 'MaxHeadSize', 0.5); % Ground
-quiver(O2x, O2y, Ax_1-O2x, Ay_1-O2y, 0, 'r', 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 2
-quiver(Ax_1, Ay_1, Bx_1-Ax_1, By_1-Ay_1, 0, 'b', 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 3
-quiver(0, 0, Bx_1, By_1, 0, 'g', 'LineWidth', 2, 'MaxHeadSize', 0.5); % Pos B
-quiver(O4x, O4y, Bx_1-O4x, By_1-O4y, 0, 'Color', [0.6, 0.3, 0], 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 4
-
-title(['Case 1: \theta_2 = ' num2str(rad2deg(q2_1g), '%.1f') '^\circ']);
-xlabel('X'); ylabel('Y');
-
-% --- PLOT CASE 2 ---
-subplot(1, 2, 2); 
-hold on; axis equal; grid on;
+% --- CASE 2: CROSSED ---
+T2_Cr = Theta2_Cross_Local + offset;
+T3_Cr = Theta3_Cross_Local + offset;
 
 % Vectors Case 2
-RA_2 = a*exp(1j*q2_2g);
-RBA_2 = b*exp(1j*q3_2g);
-RB_2 = RA_2 + RBA_2; % Position B from Origin
+R1_Cr = d * exp(1j * offset);
+R2_Cr = a * exp(1j * T2_Cr);             % Link 2 (Cyan)
+R4_Cr = c * exp(1j * Theta4_Global);     % Link 4 (Brown)
+vec_B_Cr = R1_Cr + R4_Cr;
+vec_A_Cr = R2_Cr;
+R3_Cr = vec_B_Cr - vec_A_Cr;             % Link 3 (Blue)
 
-% Components
-Ax_2=real(RA_2); Ay_2=imag(RA_2);
-Bx_2=real(RB_2); By_2=imag(RB_2);
+% --- PLOT ---
+figure(1); clf;
 
-% Quivers Case 2
-quiver(O2x, O2y, O4x-O2x, O4y-O2y, 0, 'k', 'LineWidth', 2, 'MaxHeadSize', 0.5); % Ground
-quiver(O2x, O2y, Ax_2-O2x, Ay_2-O2y, 0, 'r', 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 2
-quiver(Ax_2, Ay_2, Bx_2-Ax_2, By_2-Ay_2, 0, 'b', 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 3
-quiver(0, 0, Bx_2, By_2, 0, 'g', 'LineWidth', 2, 'MaxHeadSize', 0.5); % Pos B
-quiver(O4x, O4y, Bx_2-O4x, By_2-O4y, 0, 'Color', [0.6, 0.3, 0], 'LineWidth', 3, 'MaxHeadSize', 0.5); % Link 4
+% Subplot 1: Open
+subplot(1,2,1); hold on; grid on; axis equal;
+title('Case 1: Open Circuit');
+quiver(0,0, real(R1_Op), imag(R1_Op), 0, 'm', 'LineWidth', 2, 'MaxHeadSize',0.5); % Ground
+quiver(0,0, real(R2_Op), imag(R2_Op), 0, 'c', 'LineWidth', 2, 'MaxHeadSize',0.5); % Link 2 (Cyan)
+quiver(real(R1_Op), imag(R1_Op), real(R4_Op), imag(R4_Op), 0, 'Color',[0.6 0.3 0], 'LineWidth', 2, 'MaxHeadSize',0.5); % Link 4
+quiver(real(R2_Op), imag(R2_Op), real(R3_Op), imag(R3_Op), 0, 'b', 'LineWidth', 2, 'MaxHeadSize',0.5); % Link 3
 
-title(['Case 2: \theta_2 = ' num2str(rad2deg(q2_2g), '%.1f') '^\circ']);
-xlabel('X'); ylabel('Y');
+% Subplot 2: Crossed
+subplot(1,2,2); hold on; grid on; axis equal;
+title('Case 2: Crossed Circuit');
+quiver(0,0, real(R1_Cr), imag(R1_Cr), 0, 'm', 'LineWidth', 2, 'MaxHeadSize',0.5); % Ground
+quiver(0,0, real(R2_Cr), imag(R2_Cr), 0, 'c', 'LineWidth', 2, 'MaxHeadSize',0.5); % Link 2 (Cyan)
+quiver(real(R1_Cr), imag(R1_Cr), real(R4_Cr), imag(R4_Cr), 0, 'Color',[0.6 0.3 0], 'LineWidth', 2, 'MaxHeadSize',0.5); % Link 4
+quiver(real(R2_Cr), imag(R2_Cr), real(R3_Cr), imag(R3_Cr), 0, 'b', 'LineWidth', 2, 'MaxHeadSize',0.5); % Link 3
 
-% Add legend only once
-legend('Ground', 'Link 2 (Crank)', 'Link 3 (Coupler)', 'Pos B', 'Link 4 (Rocker)', 'Location', 'southoutside');
+% --- DISPLAY VALUES ---
+disp('========================================');
+disp(['LOOP 1 RESULTS (Input Theta 4 = ' num2str(theta4_deg) ' deg)']);
+disp('Note: Values swapped per user feedback.');
+disp('========================================');
+disp('--- CASE 1: OPEN ---');
+disp(['Theta 2 (Cyan) : ', num2str(rad2deg(T2_Open))]);
+disp(['Theta 3 (Blue) : ', num2str(rad2deg(angle(R3_Op)))]);
+disp(' ');
+disp('--- CASE 2: CROSSED ---');
+disp(['Theta 2 (Cyan) : ', num2str(rad2deg(T2_Cr))]);
+disp(['Theta 3 (Blue) : ', num2str(rad2deg(angle(R3_Cr)))]);
+disp('========================================');
