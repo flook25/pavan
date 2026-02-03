@@ -2,16 +2,15 @@ clear all
 close all
 clc
 
-% =========================================================================
 %  GLOBAL PARAMETERS
-% =========================================================================
+
 offset_deg = 0.81;
 offset = deg2rad(offset_deg);
 d_global = 0.210; % Shared Ground (Pink)
 
-% =========================================================================
+
 %  LOOP 1: CALCULATION (Inverted Input: Brown L4)
-% =========================================================================
+
 L1 = 0.210; L2 = 0.118; L3 = 0.210; L4 = 0.118;
 d = L1; a = L2; b = L3; c = L4;
 
@@ -47,9 +46,9 @@ T2_Cross_L1 = q2_loc_2 + pi + offset;
 T3_Cross_L1 = q3_loc_2 + pi + offset; 
 
 
-% =========================================================================
+
 %  LOOP 2: CALCULATION (Input: Cyan L2 from Loop 1 + 180)
-% =========================================================================
+
 L1 = 0.210; L2 = 0.118; L3 = 0.210; L4 = 0.118;
 d = L1; a = L2; b = L3; c = L4;
 
@@ -86,9 +85,9 @@ T4_Cross_L2 = q4_loc_2 + offset;
 T3_Cross_L2 = q3_loc_2 + offset; 
 
 
-% =========================================================================
+
 %  LOOP 3: CALCULATION (Inverted Input: Grey L4 from Loop 2)
-% =========================================================================
+
 L1 = 0.210; L2 = 0.180; L3 = 0.180; L4 = 0.118;
 d = L1; a = L2; b = L3; c = L4;
 
@@ -132,14 +131,14 @@ T2_Cross_L3 = q2_loc_SWAP2 + pi + offset;
 T3_Cross_L3 = q3_loc_SWAP2 + pi + offset; 
 
 
-% =========================================================================
+
 %  DISPLAY RESULTS
-% =========================================================================
+
 disp('===================================================');
 disp(['FULL MECHANISM RESULTS (Input Theta4 = ' num2str(theta4_deg) ')']);
 disp('===================================================');
 
-disp('--- SYSTEM CASE 2 (CROSSED CHAIN) ---');
+disp('--- CROSSED CURCUIT ---');
 disp(['  L1 Brown  (In) : ', num2str(rad2deg(T4_Global_L1))]);
 disp(['  L1 Cyan   (Out): ', num2str(rad2deg(T2_Cross_L1))]);
 disp('  ----------------');
@@ -150,7 +149,7 @@ disp(['  L3 Green  (Out): ', num2str(rad2deg(T2_Cross_L3))]);
 disp(['  L3 Yellow (Cou): ', num2str(rad2deg(T3_Cross_L3))]);
 disp(' ');
 
-disp('--- SYSTEM CASE 1 (OPEN CHAIN) ---');
+disp('--- OPEN CURCUIT ---');
 disp(['  L1 Brown  (In) : ', num2str(rad2deg(T4_Global_L1))]);
 disp(['  L1 Cyan   (Out): ', num2str(rad2deg(T2_Open_L1))]);
 disp('  ----------------');
@@ -161,9 +160,9 @@ disp(['  L3 Green  (Out): ', num2str(rad2deg(T2_Open_L3))]);
 disp(['  L3 Yellow (Cou): ', num2str(rad2deg(T3_Open_L3))]);
 
 
-% =========================================================================
+
 %  PLOTTING
-% =========================================================================
+
 figure(1); clf;
 
 Rot = exp(1i * offset);
@@ -203,9 +202,9 @@ quiver(0, 0, real(V_Green_sys), imag(V_Green_sys), 0, 'g', 'LineWidth', 2, 'MaxH
 quiver(real(V_Green_sys), imag(V_Green_sys), real(V_Yellow_sys), imag(V_Yellow_sys), 0, 'y', 'LineWidth', 2, 'MaxHeadSize',0.5); 
 
 
-% -------------------------
+
 % PLOT 2: SYSTEM OPEN
-% -------------------------
+
 subplot(1,2,2); hold on; grid on; axis equal;
 title('System Configuration 1 (Open)');
 plot([0 real(R1)], [0 imag(R1)], 'm-', 'LineWidth', 2); % Ground
