@@ -291,37 +291,39 @@ V_Cy_O = abs(w_Cyan_O * 0.118);
 V_Gr_O = abs(w_Grey_O * 0.118);
 V_Gn_O = abs(w_Green_O * 0.180);
 
-
+disp('====================================================');
+disp('          KINEMATIC ANALYSIS RESULTS');
+disp('====================================================');
 
 disp(' ');
-disp('--- 1. CROSSED CIRCUIT ---');
+disp('--- 1. CROSSED CONFIGURATION (CASE 2) ---');
 disp('-----------------------------------------');
 disp('LOOP 1:');
-disp(['  Brown (Input):  Angle = ' num2str(theta_input_deg, '%.2f') ' deg,  Omega = ' num2str(w_input, '%.2f') ' rad/s']);
-disp(['  Cyan (Link 1):  Angle = ' num2str(rad2deg(T2_Cross_L1),'%.2f') ' deg,  Omega = ' num2str(w_Cyan_C,'%.2f') ' rad/s,  V_Tip = ' num2str(V_Cy_C,'%.3f') ' m/s']);
-disp(['  Blue (Coupler): Angle = ' num2str(rad2deg(T3_Cross_L1),'%.2f') ' deg,  Omega = ' num2str(w_Blue_C,'%.2f') ' rad/s']);
+disp(['  Brown (Input):  Angle = ' num2str(rad2deg(T4_Global),'%.2f') ' deg,  Omega = ' num2str(w_input,'%.2f') ' rad/s,  Alpha = ' num2str(alpha_input,'%.2f') ' rad/s^2']);
+disp(['  Cyan (Link 1):  Angle = ' num2str(rad2deg(T2_Cross_L1),'%.2f') ' deg,  Omega = ' num2str(w_Cyan_C,'%.2f') ' rad/s,  Alpha = ' num2str(alp_Cyan_C,'%.2f') ' rad/s^2']);
+disp(['  Blue (Coupler): Angle = ' num2str(rad2deg(T3_Cross_L1),'%.2f') ' deg,  Omega = ' num2str(w_Blue_C,'%.2f') ' rad/s,  Alpha = ' num2str(alp_Blue_C,'%.2f') ' rad/s^2']);
 disp('LOOP 2:');
-disp(['  Grey (Link 2):  Angle = ' num2str(rad2deg(T4_Cross_L2),'%.2f') ' deg,  Omega = ' num2str(w_Grey_C,'%.2f') ' rad/s,  V_Tip = ' num2str(V_Gr_C,'%.3f') ' m/s']);
-disp(['  Red (Coupler):  Angle = ' num2str(rad2deg(T3_Cross_L2),'%.2f') ' deg,  Omega = ' num2str(w_Red_C,'%.2f') ' rad/s']);
+disp(['  Grey (Link 2):  Angle = ' num2str(rad2deg(T4_Cross_L2),'%.2f') ' deg,  Omega = ' num2str(w_Grey_C,'%.2f') ' rad/s,  Alpha = ' num2str(alp_Grey_C,'%.2f') ' rad/s^2']);
+disp(['  Red (Coupler):  Angle = ' num2str(rad2deg(T3_Cross_L2),'%.2f') ' deg,  Omega = ' num2str(w_Red_C,'%.2f') ' rad/s,  Alpha = ' num2str(alp_Red_C,'%.2f') ' rad/s^2']);
 disp('LOOP 3:');
-disp(['  Green (Link 3): Angle = ' num2str(rad2deg(T2_Cross_L3),'%.2f') ' deg,  Omega = ' num2str(w_Green_C,'%.2f') ' rad/s,  V_Tip = ' num2str(V_Gn_C,'%.3f') ' m/s']);
-disp(['  Yellow (Coup):  Angle = ' num2str(rad2deg(T3_Cross_L3),'%.2f') ' deg,  Omega = ' num2str(w_Yellow_C,'%.2f') ' rad/s']);
+disp(['  Green (Link 3): Angle = ' num2str(rad2deg(T2_Cross_L3),'%.2f') ' deg,  Omega = ' num2str(w_Green_C,'%.2f') ' rad/s,  Alpha = ' num2str(alp_Green_C,'%.2f') ' rad/s^2']);
+disp(['  Yellow (Coup):  Angle = ' num2str(rad2deg(T3_Cross_L3),'%.2f') ' deg,  Omega = ' num2str(w_Yellow_C,'%.2f') ' rad/s,  Alpha = ' num2str(alp_Yellow_C,'%.2f') ' rad/s^2']);
 disp('POINT P:');
 disp(['  Acceleration:   Mag = ' num2str(abs(AC_Total_C),'%.3f') ' m/s^2,  Angle = ' num2str(rad2deg(angle(AC_Total_C)),'%.2f') ' deg']);
 
 
 disp(' ');
-disp('--- 2. OPEN CIRCUIT ---');
+disp('--- 2. OPEN CONFIGURATION (CASE 1) ---');
 disp('-----------------------------------------');
 disp('LOOP 1:');
-disp(['  Brown (Input):  Angle = ' num2str(theta_input_deg,'%.2f') ' deg,  Omega = ' num2str(w_input,'%.2f') ' rad/s']);
-disp(['  Cyan (Link 1):  Angle = ' num2str(rad2deg(T2_Open_L1),'%.2f') ' deg,  Omega = ' num2str(w_Cyan_O,'%.2f') ' rad/s,  V_Tip = ' num2str(V_Cy_O,'%.3f') ' m/s']);
-disp(['  Blue (Coupler): Angle = ' num2str(rad2deg(T3_Open_L1),'%.2f') ' deg,  Omega = ' num2str(w_Blue_O,'%.2f') ' rad/s']);
+disp(['  Brown (Input):  Angle = ' num2str(rad2deg(T4_Global),'%.2f') ' deg,  Omega = ' num2str(w_input,'%.2f') ' rad/s,  Alpha = ' num2str(alpha_input,'%.2f') ' rad/s^2']);
+disp(['  Cyan (Link 1):  Angle = ' num2str(rad2deg(T2_Open_L1),'%.2f') ' deg,  Omega = ' num2str(w_Cyan_O,'%.2f') ' rad/s,  Alpha = ' num2str(alp_Cyan_O,'%.2f') ' rad/s^2']);
+disp(['  Blue (Coupler): Angle = ' num2str(rad2deg(T3_Open_L1),'%.2f') ' deg,  Omega = ' num2str(w_Blue_O,'%.2f') ' rad/s,  Alpha = ' num2str(alp_Blue_O,'%.2f') ' rad/s^2']);
 disp('LOOP 2:');
-disp(['  Grey (Link 2):  Angle = ' num2str(rad2deg(T4_Open_L2),'%.2f') ' deg,  Omega = ' num2str(w_Grey_O,'%.2f') ' rad/s,  V_Tip = ' num2str(V_Gr_O,'%.3f') ' m/s']);
-disp(['  Red (Coupler):  Angle = ' num2str(rad2deg(T3_Open_L2),'%.2f') ' deg,  Omega = ' num2str(w_Red_O,'%.2f') ' rad/s']);
+disp(['  Grey (Link 2):  Angle = ' num2str(rad2deg(T4_Open_L2),'%.2f') ' deg,  Omega = ' num2str(w_Grey_O,'%.2f') ' rad/s,  Alpha = ' num2str(alp_Grey_O,'%.2f') ' rad/s^2']);
+disp(['  Red (Coupler):  Angle = ' num2str(rad2deg(T3_Open_L2),'%.2f') ' deg,  Omega = ' num2str(w_Red_O,'%.2f') ' rad/s,  Alpha = ' num2str(alp_Red_O,'%.2f') ' rad/s^2']);
 disp('LOOP 3:');
-disp(['  Green (Link 3): Angle = ' num2str(rad2deg(T2_Open_L3),'%.2f') ' deg,  Omega = ' num2str(w_Green_O,'%.2f') ' rad/s,  V_Tip = ' num2str(V_Gn_O,'%.3f') ' m/s']);
-disp(['  Yellow (Coup):  Angle = ' num2str(rad2deg(T3_Open_L3),'%.2f') ' deg,  Omega = ' num2str(w_Yellow_O,'%.2f') ' rad/s']);
+disp(['  Green (Link 3): Angle = ' num2str(rad2deg(T2_Open_L3),'%.2f') ' deg,  Omega = ' num2str(w_Green_O,'%.2f') ' rad/s,  Alpha = ' num2str(alp_Green_O,'%.2f') ' rad/s^2']);
+disp(['  Yellow (Coup):  Angle = ' num2str(rad2deg(T3_Open_L3),'%.2f') ' deg,  Omega = ' num2str(w_Yellow_O,'%.2f') ' rad/s,  Alpha = ' num2str(alp_Yellow_O,'%.2f') ' rad/s^2']);
 disp('POINT P:');
 disp(['  Acceleration:   Mag = ' num2str(abs(AC_Total_O),'%.3f') ' m/s^2,  Angle = ' num2str(rad2deg(angle(AC_Total_O)),'%.2f') ' deg']);
